@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "roolz"
+version = "0.1.0"
+description = "A JSON-based rule engine for python"
+authors = ["Dje <bfodje@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "roolz" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+pytest-cov = "^5.0.0"
+pytest-benchmark = "^4.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
