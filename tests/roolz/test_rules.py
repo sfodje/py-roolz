@@ -1,5 +1,4 @@
-import pytest
-from roolz.errors import InvalidRuleError, InvalidConditionError, InvalidActionError
+from roolz.errors import InvalidRuleError
 from roolz._rules import validate_rules, execute_rules
 
 
@@ -23,60 +22,42 @@ class MockActor:
 
 
 def test_validate_rules_valid():
-    rules = {
-        "condition": True,
-        "actions": [{"action": "valid_action"}]
-    }
+    rules = {"condition": True, "actions": [{"action": "valid_action"}]}
     fact = MockFact()
     actor = MockActor()
     assert validate_rules(rules, fact, actor) is None
 
 
 def test_validate_rules_invalid_condition():
-    rules = {
-        "condition": "invalid",
-        "actions": [{"action": "valid_action"}]
-    }
+    rules = {"condition": "invalid", "actions": [{"action": "valid_action"}]}
     fact = MockFact()
     actor = MockActor()
     assert isinstance(validate_rules(rules, fact, actor), InvalidRuleError)
 
 
 def test_validate_rules_invalid_action():
-    rules = {
-        "condition": True,
-        "actions": [{"action": "missing_action"}]
-    }
+    rules = {"condition": True, "actions": [{"action": "missing_action"}]}
     fact = MockFact()
     actor = MockActor()
     assert isinstance(validate_rules(rules, fact, actor), InvalidRuleError)
 
 
 def test_execute_rules_valid():
-    rules = {
-        "condition": True,
-        "actions": [{"action": "valid_action"}]
-    }
+    rules = {"condition": True, "actions": [{"action": "valid_action"}]}
     fact = MockFact()
     actor = MockActor()
     execute_rules(rules, fact, actor)
 
 
 def test_execute_rules_condition_not_met():
-    rules = {
-        "condition": False,
-        "actions": [{"action": "valid_action"}]
-    }
+    rules = {"condition": False, "actions": [{"action": "valid_action"}]}
     fact = MockFact()
     actor = MockActor()
     execute_rules(rules, fact, actor)
 
 
 def test_execute_rules_actions_executed():
-    rules = {
-        "condition": True,
-        "actions": [{"action": "valid_action"}]
-    }
+    rules = {"condition": True, "actions": [{"action": "valid_action"}]}
     fact = MockFact()
     actor = MockActor()
     execute_rules(rules, fact, actor)

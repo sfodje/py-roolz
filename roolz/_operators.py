@@ -304,6 +304,20 @@ class _Operators:
         return left_operand == right_operand
 
     @staticmethod
+    def case_fold_equal_to(left_operand: str, right_operand: str) -> bool:
+        """
+        Check if the left operand is equal to the right operand, ignoring case.
+
+        Args:
+            left_operand (str): The left operand.
+            right_operand (str): The right operand.
+
+        Returns:
+            bool: True if the left operand is equal to the right operand, False otherwise.
+        """
+        return left_operand.casefold() == right_operand.casefold()
+
+    @staticmethod
     def not_equal_to(left_operand: Any, right_operand: Any) -> bool:
         """
         Check if the left operand is not equal to the right operand.
@@ -437,3 +451,10 @@ class _Operators:
         for name, method in cls.__dict__.items():
             if callable(method):
                 register_operator(name, method)
+
+
+def list_operators() -> list[str]:
+    """
+    List all registered operators.
+    """
+    return list(__operator_registry.keys())
