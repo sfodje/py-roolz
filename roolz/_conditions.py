@@ -44,7 +44,7 @@ def evaluate_condition(fact: object, condition: dict | str | bool) -> bool:
 def validate_condition(
     condition: dict | str | bool, fact: Type = None
 ) -> list[InvalidConditionError]:
-    return __validate_condition(condition, "condition", fact)
+    return __validate_condition(condition, "*", fact)
 
 
 def __validate_condition(
