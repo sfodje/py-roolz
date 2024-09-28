@@ -101,8 +101,12 @@ def test_operator_date_between():
     past = now - timedelta(days=1)
     future = now + timedelta(days=1)
     date_between = get_operator("date_between")
-    assert date_between(past.isoformat(), future.isoformat()) is True
-    assert date_between(future.isoformat(), past.isoformat()) is False
+    assert date_between(now, (past.isoformat(), future.isoformat())) is True
+    assert date_between(now.isoformat(), (past, future)) is True
+    assert date_between(now, (future.isoformat(), past.isoformat())) is False
+    assert date_between(now, (future, past)) is False
+    assert date_between('2021-01-01', ('2021-01-10', '2021-01-25')) is False
+    assert date_between('2021-01-15', ('2021-01-10', '2021-01-25')) is True
 
 
 def test_operator_one_of():

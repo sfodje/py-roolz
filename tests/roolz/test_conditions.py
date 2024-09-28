@@ -28,26 +28,20 @@ def test_validate_condition_string():
     assert validate_condition("false") == []
     assert validate_condition("false()") == []
     assert validate_condition("invalid") == [
-        InvalidConditionError(
-            "*", "Condition must be a boolean or a dictionary"
-        )
+        InvalidConditionError("*", "Condition must be a boolean or a dictionary")
     ]
 
 
 def test_validate_condition_invalid_type():
     assert validate_condition(123) == [
-        InvalidConditionError(
-            "*", "Condition must be a boolean or a dictionary"
-        )
+        InvalidConditionError("*", "Condition must be a boolean or a dictionary")
     ]
 
 
 def test_validate_all_condition_empty_list():
     condition = {"all": []}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.all", "'all' must be a list with at least one element"
-        )
+        InvalidConditionError("*.all", "'all' must be a list with at least one element")
     ]
 
 
@@ -65,9 +59,7 @@ def test_validate_all_condition_valid():
 def test_validate_all_condition_invalid():
     condition = {"all": [False, "false()", 123]}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.all[2]", "Condition must be a boolean or a dictionary"
-        )
+        InvalidConditionError("*.all[2]", "Condition must be a boolean or a dictionary")
     ]
 
     condition = {"all": [True, {"any": [False, True, {"fact": "some_fact_method"}]}]}
@@ -80,9 +72,7 @@ def test_validate_all_condition_invalid():
 
     condition = {"all": [True, {"any": [False, True, {"fact": "some_fact_method"}]}]}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.all[1].any[2]", "Fact is required for this condition"
-        ),
+        InvalidConditionError("*.all[1].any[2]", "Fact is required for this condition"),
         InvalidConditionError(
             "*.all[1].any[2]",
             "'operator' is required",
@@ -93,9 +83,7 @@ def test_validate_all_condition_invalid():
 def test_validate_any_condition_empty_list():
     condition = {"any": []}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.any", "'any' must be a list with at least one element"
-        )
+        InvalidConditionError("*.any", "'any' must be a list with at least one element")
     ]
 
 
@@ -113,9 +101,7 @@ def test_validate_any_condition_valid():
 def test_validate_any_condition_invalid():
     condition = {"any": [False, "false()", 123]}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.any[2]", "Condition must be a boolean or a dictionary"
-        )
+        InvalidConditionError("*.any[2]", "Condition must be a boolean or a dictionary")
     ]
 
     condition = {"any": [True, {"all": [False, True, {"fact": "some_fact_method"}]}]}
@@ -128,9 +114,7 @@ def test_validate_any_condition_invalid():
 
     condition = {"any": [True, {"all": [False, True, {"fact": "some_fact_method"}]}]}
     assert validate_condition(condition) == [
-        InvalidConditionError(
-            "*.any[1].all[2]", "Fact is required for this condition"
-        ),
+        InvalidConditionError("*.any[1].all[2]", "Fact is required for this condition"),
         InvalidConditionError(
             "*.any[1].all[2]",
             "'operator' is required",
@@ -215,9 +199,7 @@ def test_validate_fact_condition_missing_method():
 def test_validate_fact_condition_invalid_operator():
     condition = {"fact": "some_fact_method", "operator": "invalid_operator"}
     assert validate_condition(condition, MockFact) == [
-        InvalidConditionError(
-            "*", "Operator 'invalid_operator' is not defined."
-        ),
+        InvalidConditionError("*", "Operator 'invalid_operator' is not defined."),
     ]
 
 
