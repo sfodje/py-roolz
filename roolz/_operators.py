@@ -1,16 +1,26 @@
 from datetime import datetime, timezone as tz
 import inspect
 import re
+from decimal import Decimal
 from functools import wraps
 from inspect import Parameter
-from typing import Any, Callable, Iterable, get_args
+from typing import Any, Callable, Iterable, get_args, runtime_checkable, Protocol
 
 from roolz.errors import UndefinedOperatorError
 
+@runtime_checkable
+class Comparable(Protocol):
+    def __eq__(self, other: object) -> bool: ...
+    def __lt__(self, other: object) -> bool: ...
+    def __gt__(self, other: object) -> bool: ...
+    def __le__(self, other: object) -> bool: ...
+    def __ge__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+
 # Type alias for an operator function that takes two operands (left and right) and returns a boolean
 Operator = Callable[[Any, Any | None], bool]
-CmpType = int | float | str
-RawType = int | float | str | bool | Iterable | None
+CmpType = int | float | str | Comparable
+RawType = int | float | str | bool | Iterable | Comparable | None
 
 # Registry to store operator functions
 __operator_registry: dict[str, Operator] = {}
