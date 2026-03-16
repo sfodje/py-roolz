@@ -36,6 +36,8 @@ def evaluate_condition(fact: object, condition: dict | str | bool) -> bool:
     else:
         fact_method = getattr(fact, condition["fact"])
         operator = get_operator(condition["operator"])
+        if not callable(fact_method):
+            return operator(fact_method, condition.get("value"))
         args = condition.get("args", [])
         params = condition.get("params", {})
         return operator(fact_method(*args, **params), condition.get("value"))
