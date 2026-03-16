@@ -336,37 +336,38 @@ def _validate_fact_parameters(
             param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values()
         )
 
+        # Pre-compute parameter lists for efficiency
+        required_pos_params = [
+            param.name
+            for param in parameters.values()
+            if param.default == inspect.Parameter.empty
+            and param.kind
+            in [
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ]
+        ]
+        non_var_pos_params = [
+            param.name
+            for param in parameters.values()
+            if param.kind
+            in [
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ]
+        ]
+        keyword_params = [
+            p
+            for p in parameters.keys()
+            if parameters[p].kind
+            in [
+                inspect.Parameter.KEYWORD_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ]
+        ]
+        
         # Validate positional arguments
         if args:
-            # Pre-compute parameter lists for efficiency
-            required_pos_params = [
-                param.name
-                for param in parameters.values()
-                if param.default == inspect.Parameter.empty
-                and param.kind
-                in [
-                    inspect.Parameter.POSITIONAL_ONLY,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                ]
-            ]
-            non_var_pos_params = [
-                param.name
-                for param in parameters.values()
-                if param.kind
-                in [
-                    inspect.Parameter.POSITIONAL_ONLY,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                ]
-            ]
-            keyword_params = [
-                p
-                for p in parameters.keys()
-                if parameters[p].kind
-                in [
-                    inspect.Parameter.KEYWORD_ONLY,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                ]
-            ]
             
             if not has_args and len(args) > len(non_var_pos_params):
                 validation_errors.append(

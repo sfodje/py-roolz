@@ -4,7 +4,6 @@ Example demonstrating parameter value validation in roolz conditions.
 """
 
 from roolz import validate_condition, evaluate_condition
-from roolz.errors import InvalidConditionError
 
 
 class UserFact:
