@@ -142,7 +142,6 @@ def test_validate_all_condition_invalid():
 
     condition = {"all": [True, {"any": [False, True, {"fact": "some_fact_method"}]}]}
     assert validate_condition(condition) == [
-        InvalidConditionError("*.all[1].any[2]", "Fact is required for this condition"),
         InvalidConditionError(
             "*.all[1].any[2]",
             "'operator' is required",
@@ -184,7 +183,6 @@ def test_validate_any_condition_invalid():
 
     condition = {"any": [True, {"all": [False, True, {"fact": "some_fact_method"}]}]}
     assert validate_condition(condition) == [
-        InvalidConditionError("*.any[1].all[2]", "Fact is required for this condition"),
         InvalidConditionError(
             "*.any[1].all[2]",
             "'operator' is required",
@@ -200,7 +198,6 @@ def test_validate_not_condition_valid():
 def test_validate_fact_condition_missing_fact():
     condition = {"fact": "some_fact_method"}
     assert validate_condition(condition) == [
-        InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError(
             "*",
             "'operator' is required",
@@ -211,7 +208,6 @@ def test_validate_fact_condition_missing_fact():
 def test_validate_fact_condition_invalid_keys():
     condition = {"fact": "some_fact_method", "invalid_key": "value"}
     assert validate_condition(condition) == [
-        InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError("*", "Invalid keys: invalid_key"),
         InvalidConditionError(
             "*",
@@ -223,7 +219,6 @@ def test_validate_fact_condition_invalid_keys():
 def test_validate_fact_condition_invalid_args():
     condition = {"fact": {"some_fact_method": {"args": "invalid"}}}
     assert validate_condition(condition) == [
-        InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError(
             "*",
             "'operator' is required",
@@ -234,7 +229,6 @@ def test_validate_fact_condition_invalid_args():
 def test_validate_fact_condition_invalid_params():
     condition = {"fact": {"some_fact_method": {"params": "invalid"}}}
     assert validate_condition(condition) == [
-        InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError(
             "*",
             "'operator' is required",
@@ -307,9 +301,7 @@ def test_validate_fact_condition_dict_with_single_key_no_fact():
         "operator": "equal_to",
         "value": 42,
     }
-    assert validate_condition(condition) == [
-        InvalidConditionError("*", "Fact is required for this condition")
-    ]
+    assert validate_condition(condition) == []
 
 
 def test_validate_fact_condition_parameter_validation():

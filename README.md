@@ -1,297 +1,351 @@
-# Py-Roolz
+<h1>
+  <img src="logo.png" alt="Roolz" height="48" style="vertical-align: middle; margin-right: 0.5rem" />
+  Py-Roolz
+</h1>
 
-Roolz is a Python library for evaluating and executing rules based on conditions and actions. It is designed to be flexible and easy to integrate into various applications.
+Roolz is a Python rule engine that evaluates JSON-defined conditions against a **fact object** and executes actions on an **actor object** when conditions are met. Rules are plain Python dicts — no DSL, no special config files.
 
 ## Installation
-
-You can install Roolz using pip:
 
 ```bash
 pip install roolz
 ```
 
+## Core Concepts
+
+A **rule** is a dict with two keys:
+
+| Key | Type | Description |
+|---|---|---|
+| `condition` | bool / str / dict | The condition to evaluate against the fact object |
+| `actions` | list of dicts | Actions to execute on the actor object when the condition is `True` |
+
+```python
+rule = {
+    "condition": {"fact": "is_premium", "operator": "is_true"},
+    "actions": [{"action": "send_welcome_email"}]
+}
+```
+
+The **fact object** is any Python object whose methods are called to retrieve values for condition evaluation. The **actor object** is any Python object whose methods are called when a rule fires.
+
+---
+
 ## Usage
 
 ### Validating Rules
 
-To validate rules, use the `validate_rules` function. This function checks the conditions and actions defined in the
-rules and returns any validation errors.
+`validate_rules` checks that all condition and action references are valid without executing anything. Pass the fact and actor instances (or their classes) to enable method-signature checking.
 
 ```python
 from roolz import validate_rules
 
-rules = {
-    "condition": True,
-    "actions": [{"action": "valid_action"}]
+class User:
+    def is_premium(self) -> bool:
+        return True
+
+class Mailer:
+    def send_welcome_email(self):
+        print("Welcome!")
+
+rule = {
+    "condition": {"fact": "is_premium", "operator": "is_true"},
+    "actions": [{"action": "send_welcome_email"}]
 }
 
-fact = MockFact()
-actor = MockActor()
-errors = validate_rules(rules, fact, actor)
+errors = validate_rules(rule, User(), Mailer())
 if errors:
-    print("Validation errors:", errors)
+    for e in errors:
+        print(e)
 ```
 
 ### Executing Rules
 
-To execute rules, use the `execute_rules` function. This function evaluates the conditions and executes the actions if
-the conditions are met.
+`execute_rules` validates and then evaluates the condition. If it is `True`, the actions are executed in order.
 
 ```python
 from roolz import execute_rules
 
-rules = {
-    "condition": True,
-    "actions": [{"action": "valid_action"}]
-}
-
-fact = MockFact()
-actor = MockActor()
-execute_rules(rules, fact, actor)
+execute_rules(rule, User(), Mailer())
+# → "Welcome!" (printed if is_premium returns True)
 ```
+
+---
 
 ## Condition Types
 
-Roolz supports several types of conditions:
+### Boolean
 
-### Boolean Conditions
+The simplest conditions — a literal `True`/`False` or its string equivalent.
+
 ```python
-# Simple boolean values
 {"condition": True}
 {"condition": False}
-
-# String-based boolean values
-{"condition": "true"}
-{"condition": "true()"}
-{"condition": "false"}
-{"condition": "false()"}
+{"condition": "true"}   # also accepted: "true()", "false", "false()"
 ```
+
+### Fact-Based
+
+Calls a method on the fact object and compares the return value using an operator.
+
+```python
+# Simple — no arguments
+{"fact": "is_premium", "operator": "is_true"}
+
+# With keyword params (flat form — params key at top level)
+{"fact": "parcel_weight", "operator": "less_than", "value": 50, "params": {"unit": "lb"}}
+
+# With keyword params (dict form — params embedded in the fact key)
+{"fact": {"parcel_weight": {"unit": "lb"}}, "operator": "less_than", "value": 50}
+
+# With positional args (dict form)
+{"fact": {"get_location": ["US", "CA"]}, "operator": "equal_to", "value": "US"}
+```
+
+Both the flat `params` form and the dict-fact form are equivalent. Use whichever reads more clearly.
 
 ### Logical Operators
+
+Combine conditions with `all` (AND), `any` (OR), or `not` (negation). These can be nested to any depth.
+
 ```python
-# ALL - all conditions must be true
-{"condition": {"all": [True, {"fact": "method1", "operator": "is_true"}, {"fact": "method2", "operator": "equal_to", "value": 42}]}}
+# All conditions must be true
+{"all": [
+    {"fact": "is_premium", "operator": "is_true"},
+    {"fact": "get_age", "operator": "greater_than", "value": 18}
+]}
 
-# ANY - at least one condition must be true
-{"condition": {"any": [False, {"fact": "method1", "operator": "is_true"}, {"fact": "method2", "operator": "equal_to", "value": 42}]}}
+# At least one condition must be true
+{"any": [
+    {"fact": "is_premium", "operator": "is_true"},
+    {"fact": "get_age", "operator": "greater_than", "value": 65}
+]}
 
-# NOT - negate a condition
-{"condition": {"not": {"fact": "method1", "operator": "is_true"}}}
+# Negate a condition
+{"not": {"fact": "is_suspended", "operator": "is_true"}}
 ```
 
-### Fact-Based Conditions
+---
+
+## Actions
+
+An action is a dict with an `action` key (the method name on the actor) and optional `params` (keyword args) or `args` (positional args).
+
 ```python
-# Simple fact method call
-{"condition": {"fact": "method_name", "operator": "is_true"}}
+# No arguments
+{"action": "send_welcome_email"}
 
-# Fact method with parameters (using fact dictionary)
-{"condition": {"fact": {"method_name": {"param1": "value1", "param2": "value2"}}, "operator": "equal_to", "value": "expected_value"}}
+# Keyword arguments
+{"action": "send_notification", "params": {"message": "Hello!", "priority": "high"}}
 
-# Fact method with positional arguments (using fact dictionary)
-{"condition": {"fact": {"method_name": ["arg1", "arg2"]}, "operator": "equal_to", "value": "expected_value"}}
+# Positional arguments
+{"action": "log_event", "args": ["login", "success"]}
 ```
+
+---
 
 ## Examples
 
-### Example 1: Simple Condition and Action
+### Example 1: Simple Rule
 
 ```python
-from roolz import validate_rules, execute_rules
+from roolz import execute_rules
 
-class MockFact:
-    def true_method(self):
+class Order:
+    def is_first_order(self) -> bool:
         return True
 
-class MockActor:
-    def valid_action(self):
-        print("Action executed")
+class OrderProcessor:
+    def apply_discount(self, percentage: int):
+        print(f"Applied {percentage}% discount")
 
-rules = {
-    "condition": {"fact": "true_method", "operator": "is_true"},
-    "actions": [{"action": "valid_action"}]
+rule = {
+    "condition": {"fact": "is_first_order", "operator": "is_true"},
+    "actions": [{"action": "apply_discount", "params": {"percentage": 10}}]
 }
 
-fact = MockFact()
-actor = MockActor()
-
-# Validate rules
-errors = validate_rules(rules, fact, actor)
-if errors:
-    print("Validation errors:", errors)
-else:
-    # Execute rules
-    execute_rules(rules, fact, actor)
+execute_rules(rule, Order(), OrderProcessor())
+# → "Applied 10% discount"
 ```
 
-### Example 2: Condition with Parameters
+### Example 2: Fact with Parameters
 
 ```python
-from roolz import validate_rules, execute_rules
+from roolz import execute_rules
 
-class MockFact:
-    def value_method(self, *args, **kwargs):
-        return kwargs.get("value", None)
+class Parcel:
+    def weight(self, unit: str = "lb") -> float:
+        return 12.5 if unit == "lb" else 5.67
 
-class MockActor:
-    def valid_action(self):
-        print("Action executed")
+class ShippingService:
+    def approve(self):
+        print("Parcel approved for shipping")
 
-# Using fact dictionary for parameters
-rules = {
+rule = {
     "condition": {
-        "fact": {"value_method": {"value": 42}},
-        "operator": "equal_to",
-        "value": 42
+        "fact": "weight",
+        "operator": "less_than_or_equal_to",
+        "value": 50,
+        "params": {"unit": "lb"}
     },
-    "actions": [{"action": "valid_action"}]
+    "actions": [{"action": "approve"}]
 }
 
-fact = MockFact()
-actor = MockActor()
-
-# Validate rules
-errors = validate_rules(rules, fact, actor)
-if errors:
-    print("Validation errors:", errors)
-else:
-    # Execute rules
-    execute_rules(rules, fact, actor)
+execute_rules(rule, Parcel(), ShippingService())
+# → "Parcel approved for shipping"
 ```
 
-### Example 3: Complex Logical Conditions
+### Example 3: Nested Logical Conditions
 
 ```python
-from roolz import validate_rules, execute_rules
+from roolz import execute_rules
 
 class User:
-    def is_premium(self):
+    def is_premium(self) -> bool:
         return True
-    
-    def get_age(self):
+
+    def get_age(self) -> int:
         return 25
-    
-    def get_location(self, country):
-        return country
+
+    def get_country(self) -> str:
+        return "US"
 
 class NotificationService:
-    def send_email(self, message):
-        print(f"Email sent: {message}")
-    
-    def send_sms(self, message):
-        print(f"SMS sent: {message}")
+    def send_email(self, message: str):
+        print(f"Email: {message}")
 
-# Complex rule with logical operators
-rules = {
+    def send_sms(self, message: str):
+        print(f"SMS: {message}")
+
+rule = {
     "condition": {
         "all": [
             {"fact": "is_premium", "operator": "is_true"},
             {
                 "any": [
-                    {"fact": {"get_age": {}}, "operator": "greater_than", "value": 18},
-                    {"fact": {"get_location": {"country": "US"}}, "operator": "equal_to", "value": "US"}
+                    {"fact": "get_age", "operator": "greater_than", "value": 18},
+                    {"fact": "get_country", "operator": "equal_to", "value": "US"}
                 ]
             }
         ]
     },
     "actions": [
-        {"action": "send_email", "params": {"message": "Welcome premium user!"}},
-        {"action": "send_sms", "params": {"message": "Premium features activated"}}
+        {"action": "send_email", "params": {"message": "Welcome, premium user!"}},
+        {"action": "send_sms",   "params": {"message": "Premium features activated"}}
     ]
 }
 
-user = User()
-service = NotificationService()
-
-# Execute rules
-execute_rules(rules, user, service)
+execute_rules(rule, User(), NotificationService())
 ```
 
-### Example 4: Action with Parameters
+### Example 4: Validation Before Execution
 
 ```python
 from roolz import validate_rules, execute_rules
 
-class OrderProcessor:
-    def apply_discount(self, percentage):
-        print(f"Applied {percentage}% discount")
-    
-    def send_notification(self, message, priority="normal"):
-        print(f"Notification ({priority}): {message}")
-
-class Order:
-    def get_total(self):
-        return 100
-    
-    def is_first_order(self):
-        return True
-
-rules = {
-    "condition": {
-        "all": [
-            {"fact": "is_first_order", "operator": "is_true"},
-            {"fact": {"get_total": {}}, "operator": "greater_than", "value": 50}
-        ]
-    },
-    "actions": [
-        {"action": "apply_discount", "params": {"percentage": 10}},
-        {"action": "send_notification", "params": {"message": "First order discount applied!", "priority": "high"}}
-    ]
+rule = {
+    "condition": {"fact": "get_total", "operator": "greater_than", "value": 100},
+    "actions": [{"action": "apply_discount", "params": {"percentage": 15}}]
 }
 
-order = Order()
-processor = OrderProcessor()
-
-execute_rules(rules, order, processor)
+errors = validate_rules(rule, Order(), OrderProcessor())
+if errors:
+    for e in errors:
+        print("Validation error:", e)
+else:
+    execute_rules(rule, Order(), OrderProcessor())
 ```
+
+---
 
 ## Available Operators
 
-Roolz provides a comprehensive set of operators for condition evaluation:
+### Boolean / None
+| Operator | Description |
+|---|---|
+| `is_true` | Fact value is `True` |
+| `is_false` | Fact value is `False` |
+| `is_none` | Fact value is `None` |
+| `is_not_none` | Fact value is not `None` |
+| `is_empty` | Fact value is falsy or empty |
+| `is_not_empty` | Fact value is truthy and non-empty |
 
-### Basic Operators
-- `is_none` - Check if value is None
-- `is_not_none` - Check if value is not None
-- `is_empty` - Check if value is empty/falsy
-- `is_not_empty` - Check if value is not empty/truthy
-- `is_true` - Check if value is True
-- `is_false` - Check if value is False
+### Comparison
+| Operator | Description |
+|---|---|
+| `equal_to` | `fact == value` |
+| `not_equal_to` | `fact != value` |
+| `less_than` | `fact < value` |
+| `less_than_or_equal_to` | `fact <= value` |
+| `greater_than` | `fact > value` |
+| `greater_than_or_equal_to` | `fact >= value` |
 
-### Comparison Operators
-- `equal_to` - Check if values are equal
-- `not_equal_to` - Check if values are not equal
-- `less_than` - Check if left value is less than right value
-- `greater_than` - Check if left value is greater than right value
-- `less_than_or_equal_to` - Check if left value is less than or equal to right value
-- `greater_than_or_equal_to` - Check if left value is greater than or equal to right value
+### String
+| Operator | Description |
+|---|---|
+| `starts_with` | String starts with the given prefix |
+| `ends_with` | String ends with the given suffix |
+| `contains` | String or collection contains the given element |
+| `does_not_contain` | String or collection does not contain the element |
+| `matches_regex` | String matches the given regex pattern |
+| `case_fold_equal_to` | Case-insensitive equality (`"Hello" == "hello"`) |
 
-### String Operators
-- `starts_with` - Check if string starts with prefix
-- `ends_with` - Check if string ends with suffix
-- `contains` - Check if string contains substring
-- `matches_regex` - Check if string matches regex pattern
-- `case_fold_equal_to` - Case-insensitive string comparison
+### Collection
+| Operator | Description |
+|---|---|
+| `one_of` | Fact value is in the given list |
+| `contains_all` | Collection contains all elements in the given list |
+| `contains_any` | Collection contains at least one element in the given list |
 
-### Collection Operators
-- `contains` - Check if collection contains element
-- `does_not_contain` - Check if collection does not contain element
-- `contains_all` - Check if collection contains all elements
-- `contains_any` - Check if collection contains any element
-- `one_of` - Check if value is in collection
+### Date
+| Operator | Description |
+|---|---|
+| `date_between` | Date falls within `[start, end]` (ISO 8601 strings) |
 
-### Date Operators
-- `date_between` - Check if date is between two dates
+---
+
+## Custom Operators
+
+Register your own operators with the `@operator` decorator:
+
+```python
+from roolz import operator
+
+@operator("is_even")
+def is_even(fact_value, _value):
+    return isinstance(fact_value, int) and fact_value % 2 == 0
+```
+
+Once registered, the operator is available by name in any condition:
+
+```python
+{"fact": "get_count", "operator": "is_even"}
+```
+
+---
+
+## Rule Builder
+
+Roolz includes a visual web UI for building and validating rulesets without writing JSON by hand. It supports:
+
+- Visual condition trees (fact conditions, ALL / ANY / NOT groups, unlimited nesting)
+- Fact autocomplete from a definition file or Python source introspection
+- Validation that catches typos in fact names and parameter keys
+- Export to `ruleset.json` and import back into the editor
+- Auto-save to `localStorage` so your work persists across page refreshes
+
+→ **[Rule Builder documentation](rule_builder/README.md)**
+
+---
+
 
 ## Testing
 
-To run the tests, use pytest:
-
 ```bash
-pytest
+uv run pytest
 ```
 
 ## Contributing
-
-Contributions are welcome! Please follow these steps to contribute:
 
 1. Fork the repository.
 2. Create a new branch for your feature or bugfix.

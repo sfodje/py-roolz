@@ -77,3 +77,7 @@ logs/
 
 # Poetry
 poetry.lock
+
+# Rule Builder frontend
+rule_builder/frontend/node_modules/
+rule_builder/frontend/dist/

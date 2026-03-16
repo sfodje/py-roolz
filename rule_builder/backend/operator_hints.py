@@ -1,0 +1,37 @@
+"""Value-type hints per operator for UI auto-fill. Keys must match registered operator names."""
+
+OPERATOR_VALUE_HINTS: dict[str, dict] = {
+    "is_none": {"type": "none", "description": "No value needed"},
+    "is_not_none": {"type": "none", "description": "No value needed"},
+    "is_empty": {"type": "none", "description": "No value needed"},
+    "is_not_empty": {"type": "none", "description": "No value needed"},
+    "is_true": {"type": "none", "description": "No value needed"},
+    "is_false": {"type": "none", "description": "No value needed"},
+    "matches_regex": {"type": "string", "description": "Regex pattern"},
+    "date_between": {
+        "type": "array",
+        "items": "string",
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "Two ISO dates [from, to]",
+        "example": ["2024-01-01", "2025-12-31"],
+    },
+    "one_of": {
+        "type": "array",
+        "items": "any",
+        "description": "List of allowed values",
+    },
+    "less_than": {"type": "number", "description": "Numeric threshold"},
+    "greater_than": {"type": "number", "description": "Numeric threshold"},
+    "equal_to": {"type": "any", "description": "Expected value (string, number, or boolean)"},
+    "case_fold_equal_to": {"type": "string", "description": "String (case-insensitive)"},
+    "not_equal_to": {"type": "any", "description": "Value that must not match"},
+    "greater_than_or_equal_to": {"type": "number", "description": "Numeric threshold"},
+    "less_than_or_equal_to": {"type": "number", "description": "Numeric threshold"},
+    "starts_with": {"type": "string", "description": "Prefix string"},
+    "ends_with": {"type": "string", "description": "Suffix string"},
+    "contains": {"type": "any", "description": "Element that must be in the collection"},
+    "does_not_contain": {"type": "any", "description": "Element that must not be in the collection"},
+    "contains_all": {"type": "array", "items": "any", "description": "All elements must be present"},
+    "contains_any": {"type": "array", "items": "any", "description": "At least one element must be present"},
+}

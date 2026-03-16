@@ -1,4 +1,4 @@
-.PHONY: help install install-dev lint lint-fix type-check format format-check test test-coverage clean
+.PHONY: help install install-dev lint lint-fix type-check format format-check test test-coverage clean rule-builder-install rule-builder-api rule-builder-ui
 
 # Default target
 help:
@@ -14,6 +14,9 @@ help:
 	@echo "  make test-coverage - Run tests with coverage report"
 	@echo "  make check         - Run lint, type-check, format-check, and test"
 	@echo "  make clean         - Remove cache files and build artifacts"
+	@echo "  make rule-builder-install - Install rule-builder backend + frontend deps"
+	@echo "  make rule-builder-api    - Run rule-builder API (port 8000)"
+	@echo "  make rule-builder-ui     - Run rule-builder frontend (port 5173)"
 
 # Installation
 install:
@@ -67,3 +70,14 @@ clean:
 # run benchmark tests
 benchmark:
 	uv run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=mean
+
+# Rule Builder (web UI for defining rules)
+rule-builder-install:
+	uv sync --extra rule-builder
+	cd rule_builder/frontend && npm install
+
+rule-builder-api:
+	uv run uvicorn rule_builder.backend.main:app --reload --port 8000
+
+rule-builder-ui:
+	cd rule_builder/frontend && npm run dev

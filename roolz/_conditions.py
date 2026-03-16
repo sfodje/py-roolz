@@ -252,16 +252,8 @@ def __validate_fact_condition(
     """Validate a fact-based condition."""
     validation_errors = []
 
-    # Check if fact is required
-    if not fact:
-        validation_errors.append(
-            InvalidConditionError(
-                path, "Fact is required for this condition", input_value=condition
-            )
-        )
-
     # Validate keys
-    invalid_keys = set(condition.keys()) - {"fact", "operator", "value"}
+    invalid_keys = set(condition.keys()) - {"fact", "operator", "value", "params", "args"}
     if invalid_keys:
         validation_errors.append(
             InvalidConditionError(

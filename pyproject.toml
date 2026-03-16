@@ -9,6 +9,13 @@ readme = "README.md"
 dependencies = []
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+rule-builder = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pyyaml>=6.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
