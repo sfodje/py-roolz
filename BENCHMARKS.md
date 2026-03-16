@@ -16,34 +16,34 @@ make benchmark
 ### Run specific benchmark files
 ```bash
 # Operators only
-poetry run pytest tests/benchmark_test_operators.py --benchmark-only
+uv run pytest tests/benchmark_test_operators.py --benchmark-only
 
 # Conditions only
-poetry run pytest tests/benchmark_test_conditions.py --benchmark-only
+uv run pytest tests/benchmark_test_conditions.py --benchmark-only
 
 # Actions only
-poetry run pytest tests/benchmark_test_actions.py --benchmark-only
+uv run pytest tests/benchmark_test_actions.py --benchmark-only
 
 # Rules only
-poetry run pytest tests/benchmark_test_rules.py --benchmark-only
+uv run pytest tests/benchmark_test_rules.py --benchmark-only
 
 # Integration tests only
-poetry run pytest tests/benchmark_test_integration.py --benchmark-only
+uv run pytest tests/benchmark_test_integration.py --benchmark-only
 ```
 
 ### Benchmark options
 ```bash
 # Sort by mean time (default)
-poetry run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=mean
+uv run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=mean
 
 # Sort by minimum time
-poetry run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=min
+uv run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=min
 
 # Sort by maximum time
-poetry run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=max
+uv run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-sort=max
 
 # Show more statistics
-poetry run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-stddev
+uv run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-stddev
 ```
 
 ## Benchmark Categories
@@ -53,7 +53,7 @@ poetry run pytest tests/benchmark_test_*.py --benchmark-only --benchmark-stddev
 Tests the performance of individual operator functions:
 
 - **Basic operators**: `is_none`, `is_not_none`, `is_empty`, `is_true`, `is_false`
-- **String operators**: `matches_regex`, `starts_with`, `ends_with`, `case_fold_equal_to`
+- **String operators**: `matches_regex`, `starts_with`, `case_fold_equal_to`
 - **Comparison operators**: `less_than`, `greater_than`, `equal_to`, `not_equal_to`
 - **Collection operators**: `contains`, `does_not_contain`, `contains_all`, `contains_any`, `one_of`
 - **Date operators**: `date_between`

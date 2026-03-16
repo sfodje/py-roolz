@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from datetime import timezone as tz
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 

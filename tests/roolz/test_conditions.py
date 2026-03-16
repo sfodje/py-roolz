@@ -4,6 +4,27 @@ from roolz import evaluate_condition, validate_condition
 from roolz.errors import InvalidConditionError
 
 
+class LengthUnit:
+    """A simple class that can be instantiated from a string."""
+    def __init__(self, value):
+        if isinstance(value, str):
+            # Parse string like "10cm" or "5in"
+            if value.endswith("cm"):
+                self.value = float(value[:-2])
+                self.unit = "cm"
+            elif value.endswith("in"):
+                self.value = float(value[:-2])
+                self.unit = "in"
+            else:
+                raise ValueError(f"Cannot parse length unit from: {value}")
+        else:
+            self.value = float(value)
+            self.unit = "cm"  # default unit
+    
+    def __str__(self):
+        return f"{self.value}{self.unit}"
+
+
 class MockFact:
     def some_fact_method(self):
         pass
@@ -56,6 +77,9 @@ class MockFact:
 
     def size_param_method(self, size: int):
         return size
+
+    def length_unit_method(self, length: LengthUnit):
+        return length
 
 
 def test_validate_condition_boolean():
@@ -638,3 +662,123 @@ def test_validate_parameter_value_no_annotation():
 
     condition = {"fact": {"value_method": {"value": [1, 2, 3]}}, "operator": "is_true"}
     assert validate_condition(condition, MockFact) == []
+
+
+def test_validate_parameter_value_instantiable_class():
+    """Test that classes that can be instantiated from values are considered valid."""
+    
+    # Test LengthUnit can be instantiated from string
+    condition = {
+        "fact": {"length_unit_method": {"length": "10cm"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+    
+    # Test LengthUnit can be instantiated from number
+    condition = {
+        "fact": {"length_unit_method": {"length": 5.5}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+    
+    # Test LengthUnit with invalid string should fail
+    condition = {
+        "fact": {"length_unit_method": {"length": "invalid"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got str."
+        )
+    ]
+    
+    # Test LengthUnit with wrong type should fail
+    condition = {
+        "fact": {"length_unit_method": {"length": [1, 2, 3]}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got list."
+        )
+    ]
+
+
+def test_validate_parameter_value_union_and_optional():
+    """Test that Union and Optional types are validated correctly."""
+    from typing import Union, Optional
+
+    class UnionFact:
+        def union_method(self, value: Union[int, str]):
+            return value
+        def optional_method(self, value: Optional[int]):
+            return value
+
+    # Union[int, str]: int is valid
+    condition = {"fact": {"union_method": {"value": 42}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == []
+    # Union[int, str]: str is valid
+    condition = {"fact": {"union_method": {"value": "foo"}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == []
+    # Union[int, str]: float is not valid
+    condition = {"fact": {"union_method": {"value": 3.14}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'value' in method 'union_method' of class 'UnionFact' expects one of ['int', 'str'], but got float."
+        )
+    ]
+    # Optional[int]: int is valid
+    condition = {"fact": {"optional_method": {"value": 7}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == []
+    # Optional[int]: None is valid
+    condition = {"fact": {"optional_method": {"value": None}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == []
+    # Optional[int]: str is not valid
+    condition = {"fact": {"optional_method": {"value": "bad"}}, "operator": "is_true"}
+    assert validate_condition(condition, UnionFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'value' in method 'optional_method' of class 'UnionFact' expects one of ['int', 'NoneType'], but got str."
+        )
+    ]
+
+
+def test_validate_parameter_value_pep604_union():
+    """Test that PEP 604 union types (e.g., int | str) are validated correctly."""
+    class PEP604Fact:
+        def union_method(self, value: int | str):
+            return value
+        def optional_method(self, value: int | None):
+            return value
+
+    # int | str: int is valid
+    condition = {"fact": {"union_method": {"value": 42}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == []
+    # int | str: str is valid
+    condition = {"fact": {"union_method": {"value": "foo"}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == []
+    # int | str: float is not valid
+    condition = {"fact": {"union_method": {"value": 3.14}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'value' in method 'union_method' of class 'PEP604Fact' expects one of ['int', 'str'], but got float."
+        )
+    ]
+    # int | None: int is valid
+    condition = {"fact": {"optional_method": {"value": 7}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == []
+    # int | None: None is valid
+    condition = {"fact": {"optional_method": {"value": None}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == []
+    # int | None: str is not valid
+    condition = {"fact": {"optional_method": {"value": "bad"}}, "operator": "is_true"}
+    assert validate_condition(condition, PEP604Fact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'value' in method 'optional_method' of class 'PEP604Fact' expects one of ['int', 'NoneType'], but got str."
+        )
+    ]

@@ -1,5 +1,6 @@
 import inspect
-from typing import Iterable, List, Type, Union
+from typing import Iterable, List, Type, Union, get_origin, get_args
+import types
 
 from roolz._operators import get_operator
 from roolz.errors import InvalidConditionError, UndefinedOperatorError
@@ -337,6 +338,7 @@ def _validate_fact_parameters(
 
         # Validate positional arguments
         if args:
+            # Pre-compute parameter lists for efficiency
             required_pos_params = [
                 param.name
                 for param in parameters.values()
@@ -356,6 +358,16 @@ def _validate_fact_parameters(
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 ]
             ]
+            keyword_params = [
+                p
+                for p in parameters.keys()
+                if parameters[p].kind
+                in [
+                    inspect.Parameter.KEYWORD_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                ]
+            ]
+            
             if not has_args and len(args) > len(non_var_pos_params):
                 validation_errors.append(
                     InvalidConditionError(
@@ -372,9 +384,8 @@ def _validate_fact_parameters(
                 )
             else:
                 # Validate positional argument values
-                for i, (arg_value, param_name) in enumerate(
-                    zip(args, list(parameters.keys()))
-                ):
+                param_names = list(parameters.keys())
+                for i, (arg_value, param_name) in enumerate(zip(args, param_names)):
                     param = parameters[param_name]
                     value_errors = _validate_parameter_value(
                         param,
@@ -390,19 +401,10 @@ def _validate_fact_parameters(
         if params:
             for param_name, param_value in params.items():
                 if param_name not in parameters and not has_kwargs:
-                    allowed = [
-                        p
-                        for p in parameters.keys()
-                        if parameters[p].kind
-                        in [
-                            inspect.Parameter.KEYWORD_ONLY,
-                            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                        ]
-                    ]
                     validation_errors.append(
                         InvalidConditionError(
                             path,
-                            f"Unknown parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Allowed parameters: {allowed}.",
+                            f"Unknown parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Allowed parameters: {keyword_params}.",
                         )
                     )
                 elif param_name in parameters:
@@ -427,6 +429,10 @@ def _validate_fact_parameters(
                         validation_errors.extend(value_errors)
 
         # Check for missing required keyword parameters
+        required_params = [
+            p for p in parameters.keys() 
+            if parameters[p].default == inspect.Parameter.empty
+        ]
         for param_name, param in parameters.items():
             if (
                 param.default == inspect.Parameter.empty
@@ -446,7 +452,7 @@ def _validate_fact_parameters(
                 validation_errors.append(
                     InvalidConditionError(
                         path,
-                        f"Missing required parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Required parameters: {[p for p in parameters.keys() if parameters[p].default == inspect.Parameter.empty]}.",
+                        f"Missing required parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Required parameters: {required_params}.",
                     )
                 )
 
@@ -492,69 +498,125 @@ def _validate_parameter_value(
     try:
         # Basic type validation
         if param.annotation != inspect.Parameter.empty:
-            # Handle common type annotations
-            if param.annotation == str:
-                if not isinstance(value, str):
+            annotation = param.annotation
+            origin = get_origin(annotation)
+            args = get_args(annotation)
+            # Handle Union types (including Optional and PEP 604)
+            if (origin is Union or origin is types.UnionType) and args:
+                union_errors = []
+                for union_type in args:
+                    # Special case: NoneType
+                    if union_type is type(None):
+                        if value is None:
+                            break
+                        else:
+                            continue
+                    # Try normal validation for this type
+                    try:
+                        # Handle common types
+                        if union_type is str:
+                            if isinstance(value, str):
+                                break
+                        elif union_type is int:
+                            if isinstance(value, int):
+                                break
+                        elif union_type is float:
+                            if isinstance(value, (int, float)):
+                                break
+                        elif union_type is bool:
+                            if isinstance(value, bool):
+                                break
+                        elif union_type is list:
+                            if isinstance(value, list):
+                                break
+                        elif union_type is dict:
+                            if isinstance(value, dict):
+                                break
+                        else:
+                            if isinstance(value, union_type):
+                                break
+                            try:
+                                union_type(value)
+                                break
+                            except Exception as e:
+                                union_errors.append(e)
+                    except Exception as e:
+                        union_errors.append(e)
+                else:
+                    # If we never broke, value is not valid for any type in the union
                     validation_errors.append(
                         InvalidConditionError(
                             path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a string, but got {type(value).__name__}."
-                        )
-                    )
-            elif param.annotation == int:
-                if not isinstance(value, int):
-                    validation_errors.append(
-                        InvalidConditionError(
-                            path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects an integer, but got {type(value).__name__}."
-                        )
-                    )
-            elif param.annotation == float:
-                if not isinstance(value, (int, float)):
-                    validation_errors.append(
-                        InvalidConditionError(
-                            path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a number, but got {type(value).__name__}."
-                        )
-                    )
-            elif param.annotation == bool:
-                if not isinstance(value, bool):
-                    validation_errors.append(
-                        InvalidConditionError(
-                            path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a boolean, but got {type(value).__name__}."
-                        )
-                    )
-            elif param.annotation == list:
-                if not isinstance(value, list):
-                    validation_errors.append(
-                        InvalidConditionError(
-                            path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a list, but got {type(value).__name__}."
-                        )
-                    )
-            elif param.annotation == dict:
-                if not isinstance(value, dict):
-                    validation_errors.append(
-                        InvalidConditionError(
-                            path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a dictionary, but got {type(value).__name__}."
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects one of [{', '.join(repr(_get_type_name(t)) for t in args)}], but got {type(value).__name__}."
                         )
                     )
             else:
-                # For other types, try to check if the value is an instance
-                try:
-                    if not isinstance(value, param.annotation):
+                # Handle common type annotations
+                if annotation is str:
+                    if not isinstance(value, str):
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects {param.annotation.__name__}, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a string, but got {type(value).__name__}."
                             )
                         )
-                except TypeError:
-                    # If isinstance fails (e.g., for Union types), skip type validation
-                    pass
-        
+                elif annotation is int:
+                    if not isinstance(value, int):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects an integer, but got {type(value).__name__}."
+                            )
+                        )
+                elif annotation is float:
+                    if not isinstance(value, (int, float)):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a number, but got {type(value).__name__}."
+                            )
+                        )
+                elif annotation is bool:
+                    if not isinstance(value, bool):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a boolean, but got {type(value).__name__}."
+                            )
+                        )
+                elif annotation is list:
+                    if not isinstance(value, list):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a list, but got {type(value).__name__}."
+                            )
+                        )
+                elif annotation is dict:
+                    if not isinstance(value, dict):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a dictionary, but got {type(value).__name__}."
+                            )
+                        )
+                else:
+                    # For other types, try to check if the value is an instance
+                    try:
+                        if not isinstance(value, annotation):
+                            # Try to instantiate the class from the value
+                            try:
+                                annotation(value)
+                            except (TypeError, ValueError, Exception):
+                                validation_errors.append(
+                                    InvalidConditionError(
+                                        path,
+                                        f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects {annotation.__name__} or a value that can be converted to {annotation.__name__}, but got {type(value).__name__}."
+                                    )
+                                )
+                    except TypeError:
+                        # If isinstance fails (e.g., for special typing types), skip type validation
+                        pass
         # Basic value validation for common types
         if isinstance(value, str) and value.strip() == "":
             validation_errors.append(
@@ -570,7 +632,6 @@ def _validate_parameter_value(
                     f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty {type(value).__name__}."
                 )
             )
-            
     except Exception as e:
         # If validation fails for any reason, add a generic error
         validation_errors.append(
@@ -579,8 +640,17 @@ def _validate_parameter_value(
                 f"Error validating parameter '{param_name}' in method '{method_name}' of class '{class_name}': {str(e)}"
             )
         )
-    
     return validation_errors
+
+
+def _get_type_name(t):
+    try:
+        return t.__name__
+    except AttributeError:
+        # For NoneType and others
+        if t is type(None):
+            return 'NoneType'
+        return str(t)
 
 
 def _extract_fact_info(

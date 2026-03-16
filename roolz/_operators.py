@@ -59,11 +59,11 @@ class OperatorRegistry:
 # Global registry instance
 __operator_registry = OperatorRegistry()
 
-# Cache for compiled regex patterns
-__regex_cache: dict[str, re.Pattern] = {}
-
-# Cache for string operations
-__string_cache: dict[str, str] = {}
+# Cache for compiled regex patterns - using LRU cache for memory management
+@lru_cache(maxsize=128)
+def _get_compiled_regex(pattern: str) -> re.Pattern:
+    """Get compiled regex pattern from cache."""
+    return re.compile(pattern)
 
 
 def operator(name: str | None = None):
@@ -159,21 +159,6 @@ def register_operator(name: str, operator_func: Callable) -> None:
     signature = inspect.signature(operator_func)
     annotations = [p.annotation for p in signature.parameters.values()]
     __operator_registry.set(name, __validate_operands(operator_func), annotations)
-
-
-# Optimized string operations
-def _get_cached_string(s: str) -> str:
-    """Get cached string to reduce memory usage."""
-    if s not in __string_cache:
-        __string_cache[s] = s
-    return __string_cache[s]
-
-
-def _get_compiled_regex(pattern: str) -> re.Pattern:
-    """Get compiled regex pattern from cache."""
-    if pattern not in __regex_cache:
-        __regex_cache[pattern] = re.compile(pattern)
-    return __regex_cache[pattern]
 
 
 # Built-in operators with optimizations

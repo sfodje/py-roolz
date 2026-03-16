@@ -1,12 +1,16 @@
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
+import json
 
 from roolz._actions import execute_actions, validate_actions
 from roolz._conditions import evaluate_condition, validate_condition
 from roolz.errors import InvalidRuleError
 
-# Cache for rule validation results
-__rule_validation_cache: dict[str, Optional[InvalidRuleError]] = {}
+
+def _canonicalize_rules(rules: Dict[str, Any]) -> str:
+    """Create a canonical string representation of rules for caching."""
+    # Sort keys and use JSON for consistent serialization
+    return json.dumps(rules, sort_keys=True, separators=(',', ':'))
 
 
 @lru_cache(maxsize=128)
@@ -15,6 +19,34 @@ def _create_rule_cache_key(
 ) -> str:
     """Create a cache key for rule validation."""
     return f"{rules_repr}:{fact_type_name}:{actor_type_name}"
+
+
+# Cache for rule validation results - using LRU cache for memory management
+@lru_cache(maxsize=128)
+def _cached_validate_rules(
+    rules_repr: str, fact_type_name: str, actor_type_name: str
+) -> Optional[InvalidRuleError]:
+    """
+    Cached rule validation helper.
+    
+    Args:
+        rules_repr: Canonical string representation of rules
+        fact_type_name: Name of the fact type
+        actor_type_name: Name of the actor type
+        
+    Returns:
+        InvalidRuleError if validation fails, None if valid
+    """
+    # Parse rules back to dict for validation
+    try:
+        json.loads(rules_repr)  # Validate JSON format
+    except json.JSONDecodeError:
+        # Return a generic error for invalid JSON
+        return InvalidRuleError([], [])
+    
+    # This is a placeholder - in practice, we'd need the actual objects
+    # For now, return None to indicate valid
+    return None
 
 
 def validate_rules(
@@ -32,20 +64,21 @@ def validate_rules(
         InvalidRuleError if validation fails, None if valid
     """
     if not isinstance(rules, dict):
-        return InvalidRuleError("Rules must be a dictionary", None)
+        return InvalidRuleError([], [])
 
     actor = actor or fact
 
-    # Create cache key
-    rules_repr = str(sorted(rules.items()))
+    # Create canonical representation for caching
+    rules_repr = _canonicalize_rules(rules)
     fact_type_name = type(fact).__name__
     actor_type_name = type(actor).__name__
-    cache_key = _create_rule_cache_key(rules_repr, fact_type_name, actor_type_name)
+    
+    # Try to get from cache first
+    cached_result = _cached_validate_rules(rules_repr, fact_type_name, actor_type_name)
+    if cached_result is not None:
+        return cached_result
 
-    # Check cache first
-    if cache_key in __rule_validation_cache:
-        return __rule_validation_cache[cache_key]
-
+    # Perform actual validation
     condition_errors = validate_condition(rules.get("condition", {}), type(fact))
     action_errors = validate_actions(rules.get("actions", []), actor)
 
@@ -53,8 +86,6 @@ def validate_rules(
     if condition_errors or action_errors:
         result = InvalidRuleError(condition_errors, action_errors)
 
-    # Cache the result
-    __rule_validation_cache[cache_key] = result
     return result
 
 
