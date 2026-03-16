@@ -1,12 +1,13 @@
-from datetime import datetime, timezone as tz
 import inspect
 import re
-from decimal import Decimal
+from datetime import datetime
+from datetime import timezone as tz
 from functools import wraps
 from inspect import Parameter
-from typing import Any, Callable, Iterable, get_args, runtime_checkable, Protocol
+from typing import Any, Callable, Iterable, Protocol, get_args, runtime_checkable
 
 from roolz.errors import UndefinedOperatorError
+
 
 @runtime_checkable
 class Comparable(Protocol):
@@ -16,6 +17,7 @@ class Comparable(Protocol):
     def __le__(self, other: object) -> bool: ...
     def __ge__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
+
 
 # Type alias for an operator function that takes two operands (left and right) and returns a boolean
 Operator = Callable[[Any, Any | None], bool]
@@ -295,7 +297,7 @@ class _Operators:
         Returns:
             bool: True if the left operand is less than the right operand, False otherwise.
         """
-        return left_operand < right_operand
+        return left_operand < right_operand  # type: ignore
 
     @staticmethod
     def greater_than(left_operand: CmpType, right_operand: CmpType) -> bool:
@@ -309,7 +311,7 @@ class _Operators:
         Returns:
             bool: True if the left operand is greater than the right operand, False otherwise.
         """
-        return left_operand > right_operand
+        return left_operand > right_operand  # type: ignore
 
     @staticmethod
     def equal_to(left_operand: Any, right_operand: Any) -> bool:
@@ -365,7 +367,7 @@ class _Operators:
         Returns:
             bool: True if the left operand is greater than or equal to the right operand, False otherwise.
         """
-        return left_operand >= right_operand
+        return left_operand >= right_operand  # type: ignore
 
     @staticmethod
     def less_than_or_equal_to(left_operand: CmpType, right_operand: CmpType) -> bool:
@@ -379,7 +381,7 @@ class _Operators:
         Returns:
             bool: True if the left operand is less than or equal to the right operand, False otherwise.
         """
-        return left_operand <= right_operand
+        return left_operand <= right_operand  # type: ignore
 
     @staticmethod
     def starts_with(left_operand: str, right_operand: str) -> bool:
@@ -471,8 +473,12 @@ class _Operators:
         Register all built-in operator functions in the class.
         """
         for name, method in cls.__dict__.items():
-            if callable(method):
-                register_operator(name, method)
+            if (
+                callable(method)
+                and not name.startswith("_")
+                and name != "register_builtins"
+            ):
+                register_operator(name, method)  # type: ignore
 
 
 def list_operators() -> list[str]:

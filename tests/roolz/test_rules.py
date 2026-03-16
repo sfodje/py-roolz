@@ -1,5 +1,5 @@
+from roolz._rules import execute_rules, validate_rules
 from roolz.errors import InvalidRuleError
-from roolz._rules import validate_rules, execute_rules
 
 
 class MockFact:

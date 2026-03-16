@@ -1,5 +1,6 @@
 import pytest
-from roolz import validate_condition, evaluate_condition
+
+from roolz import evaluate_condition, validate_condition
 from roolz.errors import InvalidConditionError
 
 

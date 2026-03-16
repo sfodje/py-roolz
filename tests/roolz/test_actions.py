@@ -1,6 +1,7 @@
 import pytest
-from roolz.errors import InvalidActionError
+
 from roolz._actions import execute_actions, validate_actions
+from roolz.errors import InvalidActionError
 
 
 class MockActor:

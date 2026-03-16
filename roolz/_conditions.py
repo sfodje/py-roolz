@@ -42,13 +42,13 @@ def evaluate_condition(fact: object, condition: dict | str | bool) -> bool:
 
 
 def validate_condition(
-    condition: dict | str | bool, fact: Type = None
+    condition: dict | str | bool, fact: Type | None = None
 ) -> list[InvalidConditionError]:
     return __validate_condition(condition, "*", fact)
 
 
 def __validate_condition(
-    condition: dict | str | bool, path: str, fact: Type = None
+    condition: dict | str | bool, path: str, fact: Type | None = None
 ) -> list[InvalidConditionError]:
     if isinstance(condition, bool):
         return []
@@ -78,7 +78,7 @@ def __validate_condition(
 
 
 def __validate_all_condition(
-    condition: dict, path: str, fact: Type = None
+    condition: dict, path: str, fact: Type | None = None
 ) -> list[InvalidConditionError]:
     operands = condition["all"]
     new_path = f"{path}.all"
@@ -98,7 +98,7 @@ def __validate_all_condition(
 
 
 def __validate_any_condition(
-    condition: dict, path: str, fact: object = None
+    condition: dict, path: str, fact: Type | None = None
 ) -> list[InvalidConditionError]:
     operands = condition["any"]
     new_path = f"{path}.any"
@@ -118,7 +118,7 @@ def __validate_any_condition(
 
 
 def __validate_not_condition(
-    condition: dict, path: str, fact: object = None
+    condition: dict, path: str, fact: Type | None = None
 ) -> list[InvalidConditionError]:
     operand = condition["not"]
     new_path = f"{path}.not"
@@ -126,7 +126,7 @@ def __validate_not_condition(
 
 
 def __validate_fact_condition(
-    condition: dict, path: str, fact: object
+    condition: dict, path: str, fact: Type | None
 ) -> list[InvalidConditionError]:
     validation_errors = list()
     if not fact:
