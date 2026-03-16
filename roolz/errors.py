@@ -37,10 +37,16 @@ class InvalidActionError(RoolzError):
 
 
 class InvalidRuleError(RoolzError):
-    def __init__(self, condition_errors: list[InvalidConditionError], action_errors: list[InvalidActionError]):
+    def __init__(
+        self,
+        condition_errors: list[InvalidConditionError],
+        action_errors: list[InvalidActionError],
+    ):
         self.condition_errors = condition_errors
         self.action_errors = action_errors
-        super().__init__(f"Invalid rule: condition errors: {condition_errors}, action errors: {action_errors}")
+        super().__init__(
+            f"Invalid rule: condition errors: {condition_errors}, action errors: {action_errors}"
+        )
 
     def __eq__(self, other):
         return (

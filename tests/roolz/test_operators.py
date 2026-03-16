@@ -283,3 +283,10 @@ def test_operator_contains_any():
     assert contains_any([], []) is False
     assert contains_any(["a", "b", "c"], ["c", "b", "a"]) is True
     assert contains_any(["a", "b", "c"], ["d", "e", "f"]) is False
+
+
+def test_operator_case_fold_equal_to():
+    case_fold_equal_to = get_operator("case_fold_equal_to")
+    assert case_fold_equal_to("abc", "abc") is True
+    assert case_fold_equal_to("abc", "ABC") is True
+    assert case_fold_equal_to("abc", "abC") is True
