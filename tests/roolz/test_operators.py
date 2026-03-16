@@ -22,25 +22,30 @@ def test_register_operator_already_registered():
 
 def test_operator_decorator():
     """Test the @operator decorator for registering custom operators."""
-    
+
     @operator("is_even")
     def is_even(left_operand: int, right_operand: Any | None = None) -> bool:
         return left_operand % 2 == 0
-    
+
     @operator("is_positive")
-    def is_positive(left_operand: int | float, right_operand: Any | None = None) -> bool:
+    def is_positive(
+        left_operand: int | float, right_operand: Any | None = None
+    ) -> bool:
         return left_operand > 0
-    
+
     # Test that the operators are registered and work correctly
     assert get_operator("is_even")(2, None) is True
     assert get_operator("is_even")(3, None) is False
     assert get_operator("is_positive")(5, None) is True
     assert get_operator("is_positive")(-1, None) is False
-    
+
     # Test that duplicate registration raises an error
     with pytest.raises(ValueError):
+
         @operator("is_even")
-        def duplicate_is_even(left_operand: int, right_operand: Any | None = None) -> bool:
+        def duplicate_is_even(
+            left_operand: int, right_operand: Any | None = None
+        ) -> bool:
             return left_operand % 2 == 0
 
 

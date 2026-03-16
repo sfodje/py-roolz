@@ -2,8 +2,7 @@ import inspect
 import re
 from datetime import datetime
 from datetime import timezone as tz
-from functools import wraps
-from inspect import Parameter
+from functools import lru_cache, wraps
 from typing import Any, Callable, Iterable, List, Protocol, get_args, runtime_checkable
 
 from roolz.errors import UndefinedOperatorError
@@ -12,6 +11,7 @@ from roolz.errors import UndefinedOperatorError
 @runtime_checkable
 class Comparable(Protocol):
     """Protocol for objects that support comparison operations."""
+
     def __eq__(self, other: object) -> bool: ...
     def __lt__(self, other: object) -> bool: ...
     def __gt__(self, other: object) -> bool: ...
@@ -22,43 +22,78 @@ class Comparable(Protocol):
 
 # Type aliases
 Operator = Callable[[Any, Any | None], bool]
-BinaryOperator = Callable[[Any, Any], bool]
 CmpType = int | float | str | Comparable
 RawType = int | float | str | bool | Iterable | Comparable | None
 
-# Registry to store operator functions
-__operator_registry: dict[str, Operator] = {}
 
-# Registry to store parameter type annotations for operator functions
-__operator_annotations: dict[str, List[type]] = {}
+# Registry to store operator functions - using __slots__ for memory efficiency
+class OperatorRegistry:
+    __slots__ = ("_operators", "_annotations")
+
+    def __init__(self):
+        self._operators: dict[str, Operator] = {}
+        self._annotations: dict[str, List[type]] = {}
+
+    def get(self, name: str) -> Operator | None:
+        """Fast lookup with direct dict access."""
+        return self._operators.get(name)
+
+    def set(self, name: str, operator: Operator, annotations: List[type]) -> None:
+        """Set operator with annotations."""
+        self._operators[name] = operator
+        self._annotations[name] = annotations
+
+    def has(self, name: str) -> bool:
+        """Check if operator exists."""
+        return name in self._operators
+
+    def keys(self) -> List[str]:
+        """Get all operator names."""
+        return list(self._operators.keys())
+
+    def get_annotations(self, name: str) -> List[type] | None:
+        """Get annotations for an operator."""
+        return self._annotations.get(name)
+
+
+# Global registry instance
+__operator_registry = OperatorRegistry()
+
+# Cache for compiled regex patterns
+__regex_cache: dict[str, re.Pattern] = {}
+
+# Cache for string operations
+__string_cache: dict[str, str] = {}
 
 
 def operator(name: str | None = None):
     """
     Decorator to register a custom operator function.
-    
+
     Args:
         name (str): The name of the operator to register
-        
+
     Example:
         @operator("is_even")
         def is_even(left_operand: int, right_operand: Any | None = None) -> bool:
             return left_operand % 2 == 0
     """
+
     def decorator(func: Callable) -> Callable:
         operator_name = name or func.__name__
         register_operator(operator_name, func)
         return func
+
     return decorator
 
 
 def __validate_operands(func: Operator) -> Operator:
     """
     Decorator to validate operand types for operator functions.
-    
+
     Args:
         func: The operator function to validate
-        
+
     Returns:
         Wrapped function with type validation
     """
@@ -66,17 +101,19 @@ def __validate_operands(func: Operator) -> Operator:
 
     @wraps(func)
     def wrapper(left_operand: Any, right_operand: Any | None = None) -> bool:
-        if name not in __operator_annotations:
+        annotations = __operator_registry.get_annotations(name)
+        if not annotations:
             return func(left_operand, right_operand)
 
-        annotations = __operator_annotations[name]
         for i, (operand, annotation) in enumerate(
             zip((left_operand, right_operand), annotations)
         ):
             if annotation is Any or Any in get_args(annotation):
                 annotation = RawType
 
-            if annotation is not Parameter.empty and not isinstance(operand, annotation):
+            if annotation is not inspect.Parameter.empty and not isinstance(
+                operand, annotation
+            ):
                 raise TypeError(
                     f"Operand {i + 1} of operator '{name}' must be of type {annotation}."
                 )
@@ -85,9 +122,10 @@ def __validate_operands(func: Operator) -> Operator:
     return wrapper
 
 
+@lru_cache(maxsize=128)
 def get_operator(name: str) -> Operator:
     """
-    Retrieve an operator function by name.
+    Retrieve an operator function by name with caching.
 
     Args:
         name: The name of the operator
@@ -115,15 +153,30 @@ def register_operator(name: str, operator_func: Callable) -> None:
     Raises:
         ValueError: If the operator is already registered
     """
-    if name in __operator_registry:
+    if __operator_registry.has(name):
         raise ValueError(f"The '{name}' operator has already been registered.")
 
     signature = inspect.signature(operator_func)
-    __operator_annotations[name] = [p.annotation for p in signature.parameters.values()]
-    __operator_registry[name] = __validate_operands(operator_func)
+    annotations = [p.annotation for p in signature.parameters.values()]
+    __operator_registry.set(name, __validate_operands(operator_func), annotations)
 
 
-# Built-in operators
+# Optimized string operations
+def _get_cached_string(s: str) -> str:
+    """Get cached string to reduce memory usage."""
+    if s not in __string_cache:
+        __string_cache[s] = s
+    return __string_cache[s]
+
+
+def _get_compiled_regex(pattern: str) -> re.Pattern:
+    """Get compiled regex pattern from cache."""
+    if pattern not in __regex_cache:
+        __regex_cache[pattern] = re.compile(pattern)
+    return __regex_cache[pattern]
+
+
+# Built-in operators with optimizations
 @operator()
 def is_none(left_operand: Any | None, right_operand: Any | None = None) -> bool:
     """Check if the left operand is None."""
@@ -149,7 +202,9 @@ def is_not_empty(left_operand: Any | None, right_operand: Any | None = None) -> 
 
 
 @operator()
-def is_true(left_operand: bool | str | int | float, right_operand: Any | None = None) -> bool:
+def is_true(
+    left_operand: bool | str | int | float, right_operand: Any | None = None
+) -> bool:
     """Check if the left operand is True."""
     if isinstance(left_operand, str):
         return left_operand.lower() == "true"
@@ -161,7 +216,9 @@ def is_true(left_operand: bool | str | int | float, right_operand: Any | None = 
 
 
 @operator()
-def is_false(left_operand: bool | str | int | float, right_operand: Any | None = None) -> bool:
+def is_false(
+    left_operand: bool | str | int | float, right_operand: Any | None = None
+) -> bool:
     """Check if the left operand is False."""
     return not is_true(left_operand, None)
 
@@ -169,7 +226,8 @@ def is_false(left_operand: bool | str | int | float, right_operand: Any | None =
 @operator()
 def matches_regex(left_operand: str, right_operand: str) -> bool:
     """Check if the left operand matches the regex pattern."""
-    return re.fullmatch(right_operand, left_operand) is not None
+    pattern = _get_compiled_regex(right_operand)
+    return pattern.fullmatch(left_operand) is not None
 
 
 @operator()
@@ -178,26 +236,28 @@ def date_between(left_operand: str | datetime, right_operand: List | tuple) -> b
     if len(right_operand) != 2:
         raise ValueError("The 'date_between' operator requires a tuple of two dates.")
 
-    left_date = (
-        left_operand
-        if isinstance(left_operand, datetime)
-        else datetime.fromisoformat(left_operand)
-    )
-    from_date = (
-        right_operand[0]
-        if isinstance(right_operand[0], datetime)
-        else datetime.fromisoformat(right_operand[0])
-    )
-    to_date = (
-        right_operand[1]
-        if isinstance(right_operand[1], datetime)
-        else datetime.fromisoformat(right_operand[1])
-    )
-    return (
-        from_date.astimezone(tz.utc)
-        <= left_date.astimezone(tz.utc)
-        <= to_date.astimezone(tz.utc)
-    )
+    # Optimize datetime parsing
+    if isinstance(left_operand, datetime):
+        left_date = left_operand
+    else:
+        left_date = datetime.fromisoformat(left_operand)
+
+    if isinstance(right_operand[0], datetime):
+        from_date = right_operand[0]
+    else:
+        from_date = datetime.fromisoformat(right_operand[0])
+
+    if isinstance(right_operand[1], datetime):
+        to_date = right_operand[1]
+    else:
+        to_date = datetime.fromisoformat(right_operand[1])
+
+    # Convert to UTC once
+    left_utc = left_date.astimezone(tz.utc)
+    from_utc = from_date.astimezone(tz.utc)
+    to_utc = to_date.astimezone(tz.utc)
+
+    return from_utc <= left_utc <= to_utc
 
 
 @operator()
@@ -275,20 +335,30 @@ def does_not_contain(left_operand: Iterable, right_operand: Any) -> bool:
 @operator()
 def contains_all(left_operand: Iterable, right_operand: Iterable) -> bool:
     """Check if collection contains all elements."""
-    return all(item in left_operand for item in right_operand)
+    # Optimize for sets
+    if isinstance(left_operand, set):
+        return all(item in left_operand for item in right_operand)
+    # Convert to set for faster lookups
+    left_set = set(left_operand)
+    return all(item in left_set for item in right_operand)
 
 
 @operator()
 def contains_any(left_operand: Iterable, right_operand: Iterable) -> bool:
     """Check if collection contains any element."""
-    return any(item in set(left_operand) for item in right_operand)
+    # Optimize for sets
+    if isinstance(left_operand, set):
+        return any(item in left_operand for item in right_operand)
+    # Convert to set for faster lookups
+    left_set = set(left_operand)
+    return any(item in left_set for item in right_operand)
 
 
 def list_operators() -> List[str]:
     """
     List all registered operators.
-    
+
     Returns:
         List of registered operator names
     """
-    return list(__operator_registry.keys())
+    return __operator_registry.keys()
