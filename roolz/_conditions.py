@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Type
 
 from roolz._operators import get_operator
 from roolz.errors import InvalidConditionError, UndefinedOperatorError
@@ -42,13 +42,13 @@ def evaluate_condition(fact: object, condition: dict | str | bool) -> bool:
 
 
 def validate_condition(
-    condition: dict | str | bool, fact: object = None
+    condition: dict | str | bool, fact: Type = None
 ) -> list[InvalidConditionError]:
     return __validate_condition(condition, "condition", fact)
 
 
 def __validate_condition(
-    condition: dict | str | bool, path: str, fact: object = None
+    condition: dict | str | bool, path: str, fact: Type = None
 ) -> list[InvalidConditionError]:
     if isinstance(condition, bool):
         return []
@@ -78,7 +78,7 @@ def __validate_condition(
 
 
 def __validate_all_condition(
-    condition: dict, path: str, fact: object = None
+    condition: dict, path: str, fact: Type = None
 ) -> list[InvalidConditionError]:
     operands = condition["all"]
     new_path = f"{path}.all"
@@ -174,7 +174,7 @@ def __validate_fact_condition(
         validation_errors.append(
             InvalidConditionError(
                 path,
-                f"Fact method '{fact_method_name}' is not defined in '{fact.__class__.__name__}'",
+                f"Fact method '{fact_method_name}' is not defined in '{fact.__name__}'",
             )
         )
 

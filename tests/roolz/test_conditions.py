@@ -71,7 +71,7 @@ def test_validate_all_condition_invalid():
     ]
 
     condition = {"all": [True, {"any": [False, True, {"fact": "some_fact_method"}]}]}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "condition.all[1].any[2]",
             "'operator' is required",
@@ -119,7 +119,7 @@ def test_validate_any_condition_invalid():
     ]
 
     condition = {"any": [True, {"all": [False, True, {"fact": "some_fact_method"}]}]}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "condition.any[1].all[2]",
             "'operator' is required",
@@ -192,14 +192,14 @@ def test_validate_fact_condition_invalid_params():
 
 def test_validate_fact_condition_missing_method():
     condition = {"fact": "invalid_fact_method", "operator": "is_none"}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "condition",
             "Fact method 'invalid_fact_method' is not defined in 'MockFact'",
         )
     ]
     condition = {"fact": "invalid_fact_method", "operator": "is_none"}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "condition",
             "Fact method 'invalid_fact_method' is not defined in 'MockFact'",
@@ -207,14 +207,14 @@ def test_validate_fact_condition_missing_method():
     ]
 
     condition = {"operator": "is_none"}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError("condition", "Fact method name is required")
     ]
 
 
 def test_validate_fact_condition_invalid_operator():
     condition = {"fact": "some_fact_method", "operator": "invalid_operator"}
-    assert validate_condition(condition, MockFact()) == [
+    assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "condition", "Operator 'invalid_operator' is not defined."
         ),
