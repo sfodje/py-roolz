@@ -32,6 +32,31 @@ class MockFact:
     def keyword_only_method(self, *, param):
         return param
 
+    # New methods for testing value validation
+    def string_param_method(self, text: str):
+        return text
+
+    def int_param_method(self, number: int):
+        return number
+
+    def float_param_method(self, value: float):
+        return value
+
+    def bool_param_method(self, flag: bool):
+        return flag
+
+    def list_param_method(self, items: list):
+        return items
+
+    def dict_param_method(self, data: dict):
+        return data
+
+    def count_param_method(self, count: int):
+        return count
+
+    def size_param_method(self, size: int):
+        return size
+
 
 def test_validate_condition_boolean():
     assert validate_condition(True) == []
@@ -439,3 +464,177 @@ def test_evaluate_condition_fact_dict_with_empty_dict():
         InvalidConditionError, match="Fact dictionary must contain exactly one key"
     ):
         evaluate_condition(fact, condition)
+
+
+def test_validate_parameter_value_type_validation():
+    """Test that parameter values are validated against their type annotations."""
+
+    # Test string parameter validation
+    condition = {"fact": {"string_param_method": {"text": 123}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'text' in method 'string_param_method' of class 'MockFact' expects a string, but got int.",
+        )
+    ]
+
+    # Test int parameter validation
+    condition = {
+        "fact": {"int_param_method": {"number": "not_a_number"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'number' in method 'int_param_method' of class 'MockFact' expects an integer, but got str.",
+        )
+    ]
+
+    # Test float parameter validation
+    condition = {
+        "fact": {"float_param_method": {"value": "not_a_float"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'value' in method 'float_param_method' of class 'MockFact' expects a number, but got str.",
+        )
+    ]
+
+    # Test bool parameter validation
+    condition = {
+        "fact": {"bool_param_method": {"flag": "not_a_bool"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'flag' in method 'bool_param_method' of class 'MockFact' expects a boolean, but got str.",
+        )
+    ]
+
+    # Test list parameter validation
+    condition = {
+        "fact": {"list_param_method": {"items": "not_a_list"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'items' in method 'list_param_method' of class 'MockFact' expects a list, but got str.",
+        )
+    ]
+
+    # Test dict parameter validation
+    condition = {
+        "fact": {"dict_param_method": {"data": "not_a_dict"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'data' in method 'dict_param_method' of class 'MockFact' expects a dictionary, but got str.",
+        )
+    ]
+
+
+def test_validate_parameter_value_constraints():
+    """Test that parameter values are validated against common constraints."""
+
+    # Test empty string validation
+    condition = {"fact": {"string_param_method": {"text": ""}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'text' in method 'string_param_method' of class 'MockFact' cannot be an empty string."
+        )
+    ]
+    
+    # Test empty list validation
+    condition = {"fact": {"list_param_method": {"items": []}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'items' in method 'list_param_method' of class 'MockFact' cannot be an empty list."
+        )
+    ]
+    
+    # Test empty dict validation
+    condition = {"fact": {"dict_param_method": {"data": {}}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == [
+        InvalidConditionError(
+            "*",
+            "Parameter 'data' in method 'dict_param_method' of class 'MockFact' cannot be an empty dict."
+        )
+    ]
+    
+    # Test negative count validation (should now pass)
+    condition = {"fact": {"count_param_method": {"count": -1}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+    
+    # Test negative size validation (should now pass)
+    condition = {"fact": {"size_param_method": {"size": -5}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+
+def test_validate_parameter_value_valid_cases():
+    """Test that valid parameter values pass validation."""
+
+    # Test valid string
+    condition = {
+        "fact": {"string_param_method": {"text": "valid_text"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid int
+    condition = {"fact": {"int_param_method": {"number": 42}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid float
+    condition = {"fact": {"float_param_method": {"value": 3.14}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid bool
+    condition = {"fact": {"bool_param_method": {"flag": True}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid list
+    condition = {
+        "fact": {"list_param_method": {"items": [1, 2, 3]}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid dict
+    condition = {
+        "fact": {"dict_param_method": {"data": {"key": "value"}}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid positive count
+    condition = {"fact": {"count_param_method": {"count": 5}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+    # Test valid positive size
+    condition = {"fact": {"size_param_method": {"size": 10}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+
+def test_validate_parameter_value_no_annotation():
+    """Test that parameters without type annotations don't trigger validation errors."""
+
+    # Test unannotated parameter with any value
+    condition = {
+        "fact": {"value_method": {"value": "any_value"}},
+        "operator": "is_true",
+    }
+    assert validate_condition(condition, MockFact) == []
+
+    condition = {"fact": {"value_method": {"value": 123}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []
+
+    condition = {"fact": {"value_method": {"value": [1, 2, 3]}}, "operator": "is_true"}
+    assert validate_condition(condition, MockFact) == []

@@ -370,10 +370,25 @@ def _validate_fact_parameters(
                         f"Missing required positional arguments for method '{fact_method_name}' of class '{class_name}': expected at least {len(required_pos_params)}, got {len(args)}. Required positional parameters: {required_pos_params}.",
                     )
                 )
+            else:
+                # Validate positional argument values
+                for i, (arg_value, param_name) in enumerate(
+                    zip(args, list(parameters.keys()))
+                ):
+                    param = parameters[param_name]
+                    value_errors = _validate_parameter_value(
+                        param,
+                        arg_value,
+                        param_name,
+                        fact_method_name,
+                        class_name,
+                        f"{path}[{i}]",
+                    )
+                    validation_errors.extend(value_errors)
 
         # Validate keyword arguments
         if params:
-            for param_name in params.keys():
+            for param_name, param_value in params.items():
                 if param_name not in parameters and not has_kwargs:
                     allowed = [
                         p
@@ -399,6 +414,17 @@ def _validate_fact_parameters(
                                 f"Parameter '{param_name}' in method '{fact_method_name}' of class '{class_name}' is positional-only and cannot be passed as a keyword argument.",
                             )
                         )
+                    else:
+                        # Validate parameter value
+                        value_errors = _validate_parameter_value(
+                            param,
+                            param_value,
+                            param_name,
+                            fact_method_name,
+                            class_name,
+                            path,
+                        )
+                        validation_errors.extend(value_errors)
 
         # Check for missing required keyword parameters
         for param_name, param in parameters.items():
@@ -432,6 +458,128 @@ def _validate_fact_parameters(
             )
         )
 
+    return validation_errors
+
+
+def _validate_parameter_value(
+    param: inspect.Parameter,
+    value: object,
+    param_name: str,
+    method_name: str,
+    class_name: str,
+    path: str,
+) -> List[InvalidConditionError]:
+    """
+    Validate a parameter value against its type annotation and constraints.
+
+    Args:
+        param: The parameter object from inspect.signature
+        value: The value to validate
+        param_name: Name of the parameter
+        method_name: Name of the method
+        class_name: Name of the class
+        path: Current validation path for error reporting
+
+    Returns:
+        List of validation errors
+    """
+    validation_errors = []
+
+    # Skip validation if parameter accepts any type (Any annotation or no annotation)
+    if param.annotation == inspect.Parameter.empty:
+        return validation_errors
+
+    try:
+        # Basic type validation
+        if param.annotation != inspect.Parameter.empty:
+            # Handle common type annotations
+            if param.annotation == str:
+                if not isinstance(value, str):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a string, but got {type(value).__name__}."
+                        )
+                    )
+            elif param.annotation == int:
+                if not isinstance(value, int):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects an integer, but got {type(value).__name__}."
+                        )
+                    )
+            elif param.annotation == float:
+                if not isinstance(value, (int, float)):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a number, but got {type(value).__name__}."
+                        )
+                    )
+            elif param.annotation == bool:
+                if not isinstance(value, bool):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a boolean, but got {type(value).__name__}."
+                        )
+                    )
+            elif param.annotation == list:
+                if not isinstance(value, list):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a list, but got {type(value).__name__}."
+                        )
+                    )
+            elif param.annotation == dict:
+                if not isinstance(value, dict):
+                    validation_errors.append(
+                        InvalidConditionError(
+                            path,
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a dictionary, but got {type(value).__name__}."
+                        )
+                    )
+            else:
+                # For other types, try to check if the value is an instance
+                try:
+                    if not isinstance(value, param.annotation):
+                        validation_errors.append(
+                            InvalidConditionError(
+                                path,
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects {param.annotation.__name__}, but got {type(value).__name__}."
+                            )
+                        )
+                except TypeError:
+                    # If isinstance fails (e.g., for Union types), skip type validation
+                    pass
+        
+        # Basic value validation for common types
+        if isinstance(value, str) and value.strip() == "":
+            validation_errors.append(
+                InvalidConditionError(
+                    path,
+                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty string."
+                )
+            )
+        elif isinstance(value, (list, dict)) and len(value) == 0:
+            validation_errors.append(
+                InvalidConditionError(
+                    path,
+                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty {type(value).__name__}."
+                )
+            )
+            
+    except Exception as e:
+        # If validation fails for any reason, add a generic error
+        validation_errors.append(
+            InvalidConditionError(
+                path,
+                f"Error validating parameter '{param_name}' in method '{method_name}' of class '{class_name}': {str(e)}"
+            )
+        )
+    
     return validation_errors
 
 
