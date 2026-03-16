@@ -221,31 +221,43 @@ class _Operators:
         return re.fullmatch(right_operand, left_operand) is not None
 
     @staticmethod
-    def date_between(
-        left_operand: str | datetime, right_operand: str | datetime
-    ) -> bool:
+    def date_between(left_operand: str | datetime, right_operand: list | tuple) -> bool:
         """
         Check if the current date is between the left and right operand dates.
 
         Args:
-            left_operand (str | datetime): The start date.
-            right_operand (str | datetime): The end date.
+            left_operand (str | datetime): Date to check (fact date_.
+            right_operand (tuple[str | datetime, str | datetime]): Tuple of start and end dates.
 
         Returns:
-            bool: True if the current date is between the start and end dates, False otherwise.
+            bool: True if fact date is between the start and end dates, False otherwise.
         """
+        if len(right_operand) != 2:
+            raise ValueError(
+                "The 'date_between' operator requires a tuple of two dates as the right operand."
+            )
+
         left_date = (
             left_operand
             if isinstance(left_operand, datetime)
             else datetime.fromisoformat(left_operand)
         )
-        right_date = (
-            right_operand
-            if isinstance(right_operand, datetime)
-            else datetime.fromisoformat(right_operand)
+        from_date = (
+            right_operand[0]
+            if isinstance(right_operand[0], datetime)
+            else datetime.fromisoformat(right_operand[0])
         )
-        now = datetime.now(tz=tz.utc)
-        return left_date.astimezone(tz.utc) <= now <= right_date.astimezone(tz.utc)
+
+        to_date = (
+            right_operand[1]
+            if isinstance(right_operand[1], datetime)
+            else datetime.fromisoformat(right_operand[1])
+        )
+        return (
+            from_date.astimezone(tz.utc)
+            <= left_date.astimezone(tz.utc)
+            <= to_date.astimezone(tz.utc)
+        )
 
     @staticmethod
     def one_of(left_operand: Any, right_operand: Iterable) -> bool:

@@ -1,4 +1,7 @@
 # check if ruff is installed
 lint:
-	@which ruff || (pip install ruff && echo "ruff installed")
-	ruff check --fix ./ && ruff format ./
+	poetry run ruff check --fix ./ && poetry run ruff format ./
+
+
+test:
+	poetry run pytest
