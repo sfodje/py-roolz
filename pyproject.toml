@@ -16,4 +16,5 @@ dev = [
     "pytest-benchmark>=4.0.0",
     "ruff>=0.6.8",
     "pytest-xdist>=3.8.0",
+    "mypy>=1.19.1",
 ]

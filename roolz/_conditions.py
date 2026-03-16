@@ -323,7 +323,7 @@ def _validate_fact_parameters(
     Returns:
         List of validation errors
     """
-    validation_errors = []
+    validation_errors: List[InvalidConditionError] = []
 
     try:
         # Get the method from the class
@@ -336,11 +336,13 @@ def _validate_fact_parameters(
 
         # Get method signature
         sig = inspect.signature(method)
-        parameters = sig.parameters
+        parameters_dict = dict(sig.parameters)
 
         # Remove 'self' parameter for instance methods
-        if parameters and list(parameters.keys())[0] == "self":
-            parameters = {k: v for k, v in parameters.items() if k != "self"}
+        if parameters_dict and list(parameters_dict.keys())[0] == "self":
+            parameters_dict = {k: v for k, v in parameters_dict.items() if k != "self"}
+
+        parameters = parameters_dict
 
         # Check if method accepts any parameters
         if not parameters:
@@ -526,7 +528,7 @@ def _validate_parameter_value(
     Returns:
         List of validation errors
     """
-    validation_errors = []
+    validation_errors: List[InvalidConditionError] = []
 
     # Skip validation if parameter accepts any type (Any annotation or no annotation)
     if param.annotation == inspect.Parameter.empty:

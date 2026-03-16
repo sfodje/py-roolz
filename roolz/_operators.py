@@ -110,7 +110,8 @@ def __validate_operands(func: Operator) -> Operator:
             zip((left_operand, right_operand), annotations)
         ):
             if annotation is Any or Any in get_args(annotation):
-                annotation = RawType
+                # Skip validation for Any type
+                continue
 
             if annotation is not inspect.Parameter.empty and not isinstance(
                 operand, annotation
