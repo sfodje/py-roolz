@@ -152,26 +152,24 @@ def test_validate_fact_condition_invalid_keys():
 
 
 def test_validate_fact_condition_invalid_args():
-    condition = {"fact": "some_fact_method", "args": "invalid"}
+    condition = {"fact": {"some_fact_method": {"args": "invalid"}}}
     assert validate_condition(condition) == [
         InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError(
             "*",
             "'operator' is required",
         ),
-        InvalidConditionError("*", "'args' must be a list"),
     ]
 
 
 def test_validate_fact_condition_invalid_params():
-    condition = {"fact": "some_fact_method", "params": "invalid"}
+    condition = {"fact": {"some_fact_method": {"params": "invalid"}}}
     assert validate_condition(condition) == [
         InvalidConditionError("*", "Fact is required for this condition"),
         InvalidConditionError(
             "*",
             "'operator' is required",
         ),
-        InvalidConditionError("*", "'params' must be a dictionary"),
     ]
 
 
@@ -257,9 +255,12 @@ def test_evaluate_condition_fact_method():
 def test_evaluate_condition_fact_method_with_args():
     fact = MockFact()
     condition = {
-        "fact": "value_method",
+        "fact": {
+            "value_method": {
+                "value": 42
+            }
+        },
         "operator": "equal_to",
-        "params": {"value": 42},
         "value": 42,
     }
     assert evaluate_condition(fact, condition) is True

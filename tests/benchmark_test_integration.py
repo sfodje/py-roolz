@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from roolz import execute_rules, validate_rules, get_operator, register_operator
+from roolz import execute_rules, register_operator
 
 
 class TestIntegrationBenchmarks:

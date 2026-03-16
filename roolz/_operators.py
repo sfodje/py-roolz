@@ -4,13 +4,14 @@ from datetime import datetime
 from datetime import timezone as tz
 from functools import wraps
 from inspect import Parameter
-from typing import Any, Callable, Iterable, Protocol, get_args, runtime_checkable
+from typing import Any, Callable, Iterable, List, Protocol, get_args, runtime_checkable
 
 from roolz.errors import UndefinedOperatorError
 
 
 @runtime_checkable
 class Comparable(Protocol):
+    """Protocol for objects that support comparison operations."""
     def __eq__(self, other: object) -> bool: ...
     def __lt__(self, other: object) -> bool: ...
     def __gt__(self, other: object) -> bool: ...
@@ -19,8 +20,9 @@ class Comparable(Protocol):
     def __hash__(self) -> int: ...
 
 
-# Type alias for an operator function that takes two operands (left and right) and returns a boolean
+# Type aliases
 Operator = Callable[[Any, Any | None], bool]
+BinaryOperator = Callable[[Any, Any], bool]
 CmpType = int | float | str | Comparable
 RawType = int | float | str | bool | Iterable | Comparable | None
 
@@ -28,18 +30,37 @@ RawType = int | float | str | bool | Iterable | Comparable | None
 __operator_registry: dict[str, Operator] = {}
 
 # Registry to store parameter type annotations for operator functions
-__operator_annotations: dict[str, list[type]] = {}
+__operator_annotations: dict[str, List[type]] = {}
 
 
-def __validate_operands(func: Operator):
+def operator(name: str | None = None):
     """
-    Decorator to validate the types of operands passed to an operator function.
-
+    Decorator to register a custom operator function.
+    
     Args:
-        func (Operator): The operator function to be validated.
+        name (str): The name of the operator to register
+        
+    Example:
+        @operator("is_even")
+        def is_even(left_operand: int, right_operand: Any | None = None) -> bool:
+            return left_operand % 2 == 0
+    """
+    def decorator(func: Callable) -> Callable:
+        operator_name = name or func.__name__
+        register_operator(operator_name, func)
+        return func
+    return decorator
 
+
+def __validate_operands(func: Operator) -> Operator:
+    """
+    Decorator to validate operand types for operator functions.
+    
+    Args:
+        func: The operator function to validate
+        
     Returns:
-        Operator: A wrapped operator function with operand type validation.
+        Wrapped function with type validation
     """
     name = func.__name__
 
@@ -55,9 +76,7 @@ def __validate_operands(func: Operator):
             if annotation is Any or Any in get_args(annotation):
                 annotation = RawType
 
-            if annotation is not Parameter.empty and not isinstance(
-                operand, annotation
-            ):
+            if annotation is not Parameter.empty and not isinstance(operand, annotation):
                 raise TypeError(
                     f"Operand {i + 1} of operator '{name}' must be of type {annotation}."
                 )
@@ -71,13 +90,13 @@ def get_operator(name: str) -> Operator:
     Retrieve an operator function by name.
 
     Args:
-        name (str): The name of the operator.
+        name: The name of the operator
 
     Returns:
-        Operator: The operator function.
+        The operator function
 
     Raises:
-        UndefinedOperatorError: If the operator is not found in the registry.
+        UndefinedOperatorError: If the operator is not found
     """
     operator = __operator_registry.get(name)
     if operator is None:
@@ -85,16 +104,16 @@ def get_operator(name: str) -> Operator:
     return operator
 
 
-def register_operator(name: str, operator_func: Callable[[Any, Any | None], bool]):
+def register_operator(name: str, operator_func: Callable) -> None:
     """
     Register a new operator function.
 
     Args:
-        name (str): The name of the operator.
-        operator_func (Callable[[Any, Any | None], bool]): The operator function to be registered.
+        name: The name of the operator
+        operator_func: The operator function to register
 
     Raises:
-        ValueError: If the operator has already been registered.
+        ValueError: If the operator is already registered
     """
     if name in __operator_registry:
         raise ValueError(f"The '{name}' operator has already been registered.")
@@ -104,385 +123,172 @@ def register_operator(name: str, operator_func: Callable[[Any, Any | None], bool
     __operator_registry[name] = __validate_operands(operator_func)
 
 
-def __register(cls):
-    """
-    Class decorator to register built-in operators.
-
-    Args:
-        cls (type): The class containing built-in operators.
-
-    Returns:
-        type: The class itself.
-    """
-    if hasattr(cls, "register_builtins"):
-        cls.register_builtins()
-    return cls
-
-
-@__register
-class _Operators:
-    """
-    A class containing built-in operator functions.
-    """
-
-    @staticmethod
-    def is_none(left_operand: Any | None, _) -> bool:
-        """
-        Check if the left operand is None.
-
-        Args:
-            left_operand (Any | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is None, False otherwise.
-        """
-        return left_operand is None
-
-    @staticmethod
-    def is_not_none(left_operand: Any | None, _) -> bool:
-        """
-        Check if the left operand is not None.
-
-        Args:
-            left_operand (Any | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is not None, False otherwise.
-        """
-        return left_operand is not None
-
-    @staticmethod
-    def is_empty(left_operand: Any | None, _) -> bool:
-        """
-        Check if the left operand is empty.
-
-        Args:
-            left_operand (Any | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is empty, False otherwise.
-        """
-        return not left_operand
-
-    @staticmethod
-    def is_not_empty(left_operand: Any | None, _) -> bool:
-        """
-        Check if the left operand is not empty.
-
-        Args:
-            left_operand (Any | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is not empty, False otherwise.
-        """
-        return bool(left_operand)
-
-    @staticmethod
-    def is_true(left_operand: bool | str | int | float, _) -> bool:
-        """
-        Check if the left operand is True.
-
-        Args:
-            left_operand (bool | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is True, False otherwise.
-        """
-        if isinstance(left_operand, str):
-            return left_operand.lower() == "true"
-
-        if isinstance(left_operand, bool):
-            return left_operand
-
-        if isinstance(left_operand, int | float):
-            return left_operand == 1
-
-        return False
-
-    @staticmethod
-    def is_false(left_operand: bool | str | int, _) -> bool:
-        """
-        Check if the left operand is False.
-
-        Args:
-            left_operand (bool | None): The operand to check.
-            _ (Any): Unused.
-
-        Returns:
-            bool: True if the operand is False, False otherwise.
-        """
-        return not _Operators.is_true(left_operand, None)
-
-    @staticmethod
-    def matches_regex(left_operand: str, right_operand: str) -> bool:
-        """
-        Check if the left operand matches the regex pattern provided by the right operand.
-
-        Args:
-            left_operand (str): The string to be matched.
-            right_operand (str): The regex pattern.
-
-        Returns:
-            bool: True if the string matches the pattern, False otherwise.
-        """
-        return re.fullmatch(right_operand, left_operand) is not None
-
-    @staticmethod
-    def date_between(left_operand: str | datetime, right_operand: list | tuple) -> bool:
-        """
-        Check if the current date is between the left and right operand dates.
-
-        Args:
-            left_operand (str | datetime): Date to check (fact date_.
-            right_operand (tuple[str | datetime, str | datetime]): Tuple of start and end dates.
-
-        Returns:
-            bool: True if fact date is between the start and end dates, False otherwise.
-        """
-        if len(right_operand) != 2:
-            raise ValueError(
-                "The 'date_between' operator requires a tuple of two dates as the right operand."
-            )
-
-        left_date = (
-            left_operand
-            if isinstance(left_operand, datetime)
-            else datetime.fromisoformat(left_operand)
-        )
-        from_date = (
-            right_operand[0]
-            if isinstance(right_operand[0], datetime)
-            else datetime.fromisoformat(right_operand[0])
-        )
-
-        to_date = (
-            right_operand[1]
-            if isinstance(right_operand[1], datetime)
-            else datetime.fromisoformat(right_operand[1])
-        )
-        return (
-            from_date.astimezone(tz.utc)
-            <= left_date.astimezone(tz.utc)
-            <= to_date.astimezone(tz.utc)
-        )
-
-    @staticmethod
-    def one_of(left_operand: Any, right_operand: Iterable) -> bool:
-        """
-        Check if the left operand is one of the elements in the right operand.
-
-        Args:
-            left_operand (Any): The element to check.
-            right_operand (Iterable): The collection to check against.
-
-        Returns:
-            bool: True if the element is in the collection, False otherwise.
-        """
-        return left_operand in right_operand
-
-    @staticmethod
-    def less_than(left_operand: CmpType, right_operand: CmpType) -> bool:
-        """
-        Check if the left operand is less than the right operand.
-
-        Args:
-            left_operand (CmpType): The left operand.
-            right_operand (CmpType): The right operand.
-
-        Returns:
-            bool: True if the left operand is less than the right operand, False otherwise.
-        """
-        return left_operand < right_operand  # type: ignore
-
-    @staticmethod
-    def greater_than(left_operand: CmpType, right_operand: CmpType) -> bool:
-        """
-        Check if the left operand is greater than the right operand.
-
-        Args:
-            left_operand (CmpType): The left operand.
-            right_operand (CmpType): The right operand.
-
-        Returns:
-            bool: True if the left operand is greater than the right operand, False otherwise.
-        """
-        return left_operand > right_operand  # type: ignore
-
-    @staticmethod
-    def equal_to(left_operand: Any, right_operand: Any) -> bool:
-        """
-        Check if the left operand is equal to the right operand.
-
-        Args:
-            left_operand (Any): The left operand.
-            right_operand (Any): The right operand.
-
-        Returns:
-            bool: True if the left operand is equal to the right operand, False otherwise.
-        """
-        return left_operand == right_operand
-
-    @staticmethod
-    def case_fold_equal_to(left_operand: str, right_operand: str) -> bool:
-        """
-        Check if the left operand is equal to the right operand, ignoring case.
-
-        Args:
-            left_operand (str): The left operand.
-            right_operand (str): The right operand.
-
-        Returns:
-            bool: True if the left operand is equal to the right operand, False otherwise.
-        """
-        return left_operand.casefold() == right_operand.casefold()
-
-    @staticmethod
-    def not_equal_to(left_operand: Any, right_operand: Any) -> bool:
-        """
-        Check if the left operand is not equal to the right operand.
-
-        Args:
-            left_operand (Any): The left operand.
-            right_operand (Any): The right operand.
-
-        Returns:
-            bool: True if the left operand is not equal to the right operand, False otherwise.
-        """
-        return left_operand != right_operand
-
-    @staticmethod
-    def greater_than_or_equal_to(left_operand: CmpType, right_operand: CmpType) -> bool:
-        """
-        Check if the left operand is greater than or equal to the right operand.
-
-        Args:
-            left_operand (CmpType): The left operand.
-            right_operand (CmpType): The right operand.
-
-        Returns:
-            bool: True if the left operand is greater than or equal to the right operand, False otherwise.
-        """
-        return left_operand >= right_operand  # type: ignore
-
-    @staticmethod
-    def less_than_or_equal_to(left_operand: CmpType, right_operand: CmpType) -> bool:
-        """
-        Check if the left operand is less than or equal to the right operand.
-
-        Args:
-            left_operand (CmpType): The left operand.
-            right_operand (CmpType): The right operand.
-
-        Returns:
-            bool: True if the left operand is less than or equal to the right operand, False otherwise.
-        """
-        return left_operand <= right_operand  # type: ignore
-
-    @staticmethod
-    def starts_with(left_operand: str, right_operand: str) -> bool:
-        """
-        Check if the left operand starts with the right operand.
-
-        Args:
-            left_operand (str): The string to check.
-            right_operand (str): The prefix to check for.
-
-        Returns:
-            bool: True if the string starts with the prefix, False otherwise.
-        """
-        return left_operand.startswith(right_operand)
-
-    @staticmethod
-    def ends_with(left_operand: str, right_operand: str) -> bool:
-        """
-        Check if the left operand ends with the right operand.
-
-        Args:
-            left_operand (str): The string to check.
-            right_operand (str): The suffix to check for.
-
-        Returns:
-            bool: True if the string ends with the suffix, False otherwise.
-        """
-        return left_operand.endswith(right_operand)
-
-    @staticmethod
-    def contains(left_operand: Iterable, right_operand: Any) -> bool:
-        """
-        Check if the left operand contains the right operand.
-
-        Args:
-            left_operand (Iterable): The collection to check.
-            right_operand (Any): The element to check for.
-
-        Returns:
-            bool: True if the collection contains the element, False otherwise.
-        """
-        return right_operand in left_operand
-
-    @staticmethod
-    def does_not_contain(left_operand: Iterable, right_operand: Any) -> bool:
-        """
-        Check if the left operand does not contain the right operand.
-
-        Args:
-            left_operand (Iterable): The collection to check.
-            right_operand (Any): The element to check for.
-
-        Returns:
-            bool: True if the collection does not contain the element, False otherwise.
-        """
-        return right_operand not in left_operand
-
-    @staticmethod
-    def contains_all(left_operand: Iterable, right_operand: Iterable) -> bool:
-        """
-        Check if the left operand contains all elements of the right operand.
-
-        Args:
-            left_operand (Iterable): The collection to check.
-            right_operand (Iterable): The elements to check for.
-
-        Returns:
-            bool: True if the collection contains all elements, False otherwise.
-        """
-        return all(item in left_operand for item in right_operand)
-
-    @staticmethod
-    def contains_any(left_operand: Iterable, right_operand: Iterable) -> bool:
-        """
-        Check if the left operand contains any element of the right operand.
-
-        Args:
-            left_operand (Iterable): The collection to check.
-            right_operand (Iterable): The elements to check for.
-
-        Returns:
-            bool: True if the collection contains any element, False otherwise.
-        """
-        return any(item in set(left_operand) for item in right_operand)
-
-    @classmethod
-    def register_builtins(cls):
-        """
-        Register all built-in operator functions in the class.
-        """
-        for name, method in cls.__dict__.items():
-            if (
-                callable(method)
-                and not name.startswith("_")
-                and name != "register_builtins"
-            ):
-                register_operator(name, method)  # type: ignore
-
-
-def list_operators() -> list[str]:
+# Built-in operators
+@operator()
+def is_none(left_operand: Any | None, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is None."""
+    return left_operand is None
+
+
+@operator()
+def is_not_none(left_operand: Any | None, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is not None."""
+    return left_operand is not None
+
+
+@operator()
+def is_empty(left_operand: Any | None, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is empty."""
+    return not left_operand
+
+
+@operator()
+def is_not_empty(left_operand: Any | None, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is not empty."""
+    return bool(left_operand)
+
+
+@operator()
+def is_true(left_operand: bool | str | int | float, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is True."""
+    if isinstance(left_operand, str):
+        return left_operand.lower() == "true"
+    if isinstance(left_operand, bool):
+        return left_operand
+    if isinstance(left_operand, (int, float)):
+        return left_operand == 1
+    return False
+
+
+@operator()
+def is_false(left_operand: bool | str | int | float, right_operand: Any | None = None) -> bool:
+    """Check if the left operand is False."""
+    return not is_true(left_operand, None)
+
+
+@operator()
+def matches_regex(left_operand: str, right_operand: str) -> bool:
+    """Check if the left operand matches the regex pattern."""
+    return re.fullmatch(right_operand, left_operand) is not None
+
+
+@operator()
+def date_between(left_operand: str | datetime, right_operand: List | tuple) -> bool:
+    """Check if the date is between two dates."""
+    if len(right_operand) != 2:
+        raise ValueError("The 'date_between' operator requires a tuple of two dates.")
+
+    left_date = (
+        left_operand
+        if isinstance(left_operand, datetime)
+        else datetime.fromisoformat(left_operand)
+    )
+    from_date = (
+        right_operand[0]
+        if isinstance(right_operand[0], datetime)
+        else datetime.fromisoformat(right_operand[0])
+    )
+    to_date = (
+        right_operand[1]
+        if isinstance(right_operand[1], datetime)
+        else datetime.fromisoformat(right_operand[1])
+    )
+    return (
+        from_date.astimezone(tz.utc)
+        <= left_date.astimezone(tz.utc)
+        <= to_date.astimezone(tz.utc)
+    )
+
+
+@operator()
+def one_of(left_operand: Any, right_operand: Iterable) -> bool:
+    """Check if the left operand is in the right operand collection."""
+    return left_operand in right_operand
+
+
+@operator()
+def less_than(left_operand: CmpType, right_operand: CmpType) -> bool:
+    """Check if left operand is less than right operand."""
+    return left_operand < right_operand  # type: ignore
+
+
+@operator()
+def greater_than(left_operand: CmpType, right_operand: CmpType) -> bool:
+    """Check if left operand is greater than right operand."""
+    return left_operand > right_operand  # type: ignore
+
+
+@operator()
+def equal_to(left_operand: Any, right_operand: Any) -> bool:
+    """Check if operands are equal."""
+    return left_operand == right_operand
+
+
+@operator()
+def case_fold_equal_to(left_operand: str, right_operand: str) -> bool:
+    """Check if strings are equal ignoring case."""
+    return left_operand.casefold() == right_operand.casefold()
+
+
+@operator()
+def not_equal_to(left_operand: Any, right_operand: Any) -> bool:
+    """Check if operands are not equal."""
+    return left_operand != right_operand
+
+
+@operator()
+def greater_than_or_equal_to(left_operand: CmpType, right_operand: CmpType) -> bool:
+    """Check if left operand is greater than or equal to right operand."""
+    return left_operand >= right_operand  # type: ignore
+
+
+@operator()
+def less_than_or_equal_to(left_operand: CmpType, right_operand: CmpType) -> bool:
+    """Check if left operand is less than or equal to right operand."""
+    return left_operand <= right_operand  # type: ignore
+
+
+@operator()
+def starts_with(left_operand: str, right_operand: str) -> bool:
+    """Check if string starts with prefix."""
+    return left_operand.startswith(right_operand)
+
+
+@operator()
+def ends_with(left_operand: str, right_operand: str) -> bool:
+    """Check if string ends with suffix."""
+    return left_operand.endswith(right_operand)
+
+
+@operator()
+def contains(left_operand: Iterable, right_operand: Any) -> bool:
+    """Check if collection contains element."""
+    return right_operand in left_operand
+
+
+@operator()
+def does_not_contain(left_operand: Iterable, right_operand: Any) -> bool:
+    """Check if collection does not contain element."""
+    return right_operand not in left_operand
+
+
+@operator()
+def contains_all(left_operand: Iterable, right_operand: Iterable) -> bool:
+    """Check if collection contains all elements."""
+    return all(item in left_operand for item in right_operand)
+
+
+@operator()
+def contains_any(left_operand: Iterable, right_operand: Iterable) -> bool:
+    """Check if collection contains any element."""
+    return any(item in set(left_operand) for item in right_operand)
+
+
+def list_operators() -> List[str]:
     """
     List all registered operators.
+    
+    Returns:
+        List of registered operator names
     """
     return list(__operator_registry.keys())

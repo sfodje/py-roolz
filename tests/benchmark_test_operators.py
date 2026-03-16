@@ -1,6 +1,5 @@
-import pytest
 from datetime import datetime, timezone
-from roolz._operators import _Operators, get_operator, register_operator
+from roolz._operators import get_operator, register_operator
 
 
 class TestOperatorBenchmarks:

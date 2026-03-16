@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
 from datetime import timezone as tz
+from typing import Any, Callable
 
 import pytest
 
 from roolz import get_operator, register_operator
+from roolz._operators import operator
 from roolz.errors import UndefinedOperatorError
 
 
@@ -18,59 +20,83 @@ def test_register_operator_already_registered():
         register_operator("is_empty", is_empty)
 
 
+def test_operator_decorator():
+    """Test the @operator decorator for registering custom operators."""
+    
+    @operator("is_even")
+    def is_even(left_operand: int, right_operand: Any | None = None) -> bool:
+        return left_operand % 2 == 0
+    
+    @operator("is_positive")
+    def is_positive(left_operand: int | float, right_operand: Any | None = None) -> bool:
+        return left_operand > 0
+    
+    # Test that the operators are registered and work correctly
+    assert get_operator("is_even")(2, None) is True
+    assert get_operator("is_even")(3, None) is False
+    assert get_operator("is_positive")(5, None) is True
+    assert get_operator("is_positive")(-1, None) is False
+    
+    # Test that duplicate registration raises an error
+    with pytest.raises(ValueError):
+        @operator("is_even")
+        def duplicate_is_even(left_operand: int, right_operand: Any | None = None) -> bool:
+            return left_operand % 2 == 0
+
+
 def test_operator_is_none():
     is_none = get_operator("is_none")
-    assert is_none(None) is True
-    assert is_none(0) is False
+    assert is_none(None, None) is True
+    assert is_none(0, None) is False
 
 
 def test_operator_is_not_none():
     is_not_none = get_operator("is_not_none")
-    assert is_not_none(None) is False
-    assert is_not_none(0) is True
+    assert is_not_none(None, None) is False
+    assert is_not_none(0, None) is True
 
 
 def test_operator_is_empty():
     is_empty = get_operator("is_empty")
-    assert is_empty("") is True
-    assert is_empty("not empty") is False
-    assert is_empty([]) is True
-    assert is_empty([1]) is False
-    assert is_empty({}) is True
-    assert is_empty({"key": "value"}) is False
+    assert is_empty("", None) is True
+    assert is_empty("not empty", None) is False
+    assert is_empty([], None) is True
+    assert is_empty([1], None) is False
+    assert is_empty({}, None) is True
+    assert is_empty({"key": "value"}, None) is False
 
 
 def test_operator_is_not_empty():
     is_not_empty = get_operator("is_not_empty")
-    assert is_not_empty("") is False
-    assert is_not_empty("not empty") is True
-    assert is_not_empty([]) is False
-    assert is_not_empty([1]) is True
-    assert is_not_empty({}) is False
-    assert is_not_empty({"key": "value"}) is True
+    assert is_not_empty("", None) is False
+    assert is_not_empty("not empty", None) is True
+    assert is_not_empty([], None) is False
+    assert is_not_empty([1], None) is True
+    assert is_not_empty({}, None) is False
+    assert is_not_empty({"key": "value"}, None) is True
 
 
 def test_operator_is_true():
     is_true = get_operator("is_true")
-    assert is_true(True) is True
-    assert is_true(False) is False
-    assert is_true(0) is False
-    assert is_true(1) is True
-    assert is_true("") is False
-    assert is_true("True") is True
-    assert is_true("False") is False
-    assert is_true(1.0) is True
+    assert is_true(True, None) is True
+    assert is_true(False, None) is False
+    assert is_true(0, None) is False
+    assert is_true(1, None) is True
+    assert is_true("", None) is False
+    assert is_true("True", None) is True
+    assert is_true("False", None) is False
+    assert is_true(1.0, None) is True
 
 
 def test_operator_is_false():
     is_false = get_operator("is_false")
-    assert is_false(True) is False
-    assert is_false(False) is True
-    assert is_false(0) is True
-    assert is_false(1) is False
-    assert is_false("") is True
-    assert is_false("True") is False
-    assert is_false("False") is True
+    assert is_false(True, None) is False
+    assert is_false(False, None) is True
+    assert is_false(0, None) is True
+    assert is_false(1, None) is False
+    assert is_false("", None) is True
+    assert is_false("True", None) is False
+    assert is_false("False", None) is True
 
 
 def test_operator_matches_regex():
