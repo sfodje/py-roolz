@@ -1,3 +1,6 @@
+from typing import Any
+
+
 class RoolzError(Exception):
     pass
 
@@ -9,9 +12,10 @@ class UndefinedOperatorError(RoolzError):
 
 
 class InvalidConditionError(RoolzError):
-    def __init__(self, path: str, message: str):
+    def __init__(self, path: str, message: str, input_value: Any = None):
         self.path = path
         self.message = message
+        self.input_value = input_value
         super().__init__(f"Invalid condition at path '{path}': {message}")
 
     def __eq__(self, other):
@@ -23,9 +27,10 @@ class InvalidConditionError(RoolzError):
 
 
 class InvalidActionError(RoolzError):
-    def __init__(self, path: str, message: str):
+    def __init__(self, path: str, message: str, input_value: Any = None):
         self.path = path
         self.message = message
+        self.input_value = input_value
         super().__init__(f"Invalid action at path '{path}': {message}")
 
     def __eq__(self, other):

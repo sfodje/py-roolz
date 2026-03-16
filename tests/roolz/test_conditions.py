@@ -6,6 +6,7 @@ from roolz.errors import InvalidConditionError
 
 class LengthUnit:
     """A simple class that can be instantiated from a string."""
+
     def __init__(self, value):
         if isinstance(value, str):
             # Parse string like "10cm" or "5in"
@@ -20,7 +21,7 @@ class LengthUnit:
         else:
             self.value = float(value)
             self.unit = "cm"  # default unit
-    
+
     def __str__(self):
         return f"{self.value}{self.unit}"
 
@@ -93,13 +94,17 @@ def test_validate_condition_string():
     assert validate_condition("false") == []
     assert validate_condition("false()") == []
     assert validate_condition("invalid") == [
-        InvalidConditionError("*", "Condition must be a boolean or a dictionary")
+        InvalidConditionError(
+            "*", "Condition must be a boolean or a dictionary", input_value="invalid"
+        )
     ]
 
 
 def test_validate_condition_invalid_type():
     assert validate_condition(123) == [  # type: ignore
-        InvalidConditionError("*", "Condition must be a boolean or a dictionary")
+        InvalidConditionError(
+            "*", "Condition must be a boolean or a dictionary", input_value=123
+        )
     ]
 
 
@@ -571,32 +576,32 @@ def test_validate_parameter_value_constraints():
     assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'text' in method 'string_param_method' of class 'MockFact' cannot be an empty string."
+            "Parameter 'text' in method 'string_param_method' of class 'MockFact' cannot be an empty string.",
         )
     ]
-    
+
     # Test empty list validation
     condition = {"fact": {"list_param_method": {"items": []}}, "operator": "is_true"}
     assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'items' in method 'list_param_method' of class 'MockFact' cannot be an empty list."
+            "Parameter 'items' in method 'list_param_method' of class 'MockFact' cannot be an empty list.",
         )
     ]
-    
+
     # Test empty dict validation
     condition = {"fact": {"dict_param_method": {"data": {}}}, "operator": "is_true"}
     assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'data' in method 'dict_param_method' of class 'MockFact' cannot be an empty dict."
+            "Parameter 'data' in method 'dict_param_method' of class 'MockFact' cannot be an empty dict.",
         )
     ]
-    
+
     # Test negative count validation (should now pass)
     condition = {"fact": {"count_param_method": {"count": -1}}, "operator": "is_true"}
     assert validate_condition(condition, MockFact) == []
-    
+
     # Test negative size validation (should now pass)
     condition = {"fact": {"size_param_method": {"size": -5}}, "operator": "is_true"}
     assert validate_condition(condition, MockFact) == []
@@ -666,21 +671,21 @@ def test_validate_parameter_value_no_annotation():
 
 def test_validate_parameter_value_instantiable_class():
     """Test that classes that can be instantiated from values are considered valid."""
-    
+
     # Test LengthUnit can be instantiated from string
     condition = {
         "fact": {"length_unit_method": {"length": "10cm"}},
         "operator": "is_true",
     }
     assert validate_condition(condition, MockFact) == []
-    
+
     # Test LengthUnit can be instantiated from number
     condition = {
         "fact": {"length_unit_method": {"length": 5.5}},
         "operator": "is_true",
     }
     assert validate_condition(condition, MockFact) == []
-    
+
     # Test LengthUnit with invalid string should fail
     condition = {
         "fact": {"length_unit_method": {"length": "invalid"}},
@@ -689,10 +694,10 @@ def test_validate_parameter_value_instantiable_class():
     assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got str."
+            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got str.",
         )
     ]
-    
+
     # Test LengthUnit with wrong type should fail
     condition = {
         "fact": {"length_unit_method": {"length": [1, 2, 3]}},
@@ -701,18 +706,19 @@ def test_validate_parameter_value_instantiable_class():
     assert validate_condition(condition, MockFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got list."
+            "Parameter 'length' in method 'length_unit_method' of class 'MockFact' expects LengthUnit or a value that can be converted to LengthUnit, but got list.",
         )
     ]
 
 
 def test_validate_parameter_value_union_and_optional():
     """Test that Union and Optional types are validated correctly."""
-    from typing import Union, Optional
+    from typing import Optional, Union
 
     class UnionFact:
         def union_method(self, value: Union[int, str]):
             return value
+
         def optional_method(self, value: Optional[int]):
             return value
 
@@ -727,7 +733,7 @@ def test_validate_parameter_value_union_and_optional():
     assert validate_condition(condition, UnionFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'value' in method 'union_method' of class 'UnionFact' expects one of ['int', 'str'], but got float."
+            "Parameter 'value' in method 'union_method' of class 'UnionFact' expects one of ['int', 'str'], but got float.",
         )
     ]
     # Optional[int]: int is valid
@@ -741,16 +747,18 @@ def test_validate_parameter_value_union_and_optional():
     assert validate_condition(condition, UnionFact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'value' in method 'optional_method' of class 'UnionFact' expects one of ['int', 'NoneType'], but got str."
+            "Parameter 'value' in method 'optional_method' of class 'UnionFact' expects one of ['int', 'NoneType'], but got str.",
         )
     ]
 
 
 def test_validate_parameter_value_pep604_union():
     """Test that PEP 604 union types (e.g., int | str) are validated correctly."""
+
     class PEP604Fact:
         def union_method(self, value: int | str):
             return value
+
         def optional_method(self, value: int | None):
             return value
 
@@ -765,7 +773,7 @@ def test_validate_parameter_value_pep604_union():
     assert validate_condition(condition, PEP604Fact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'value' in method 'union_method' of class 'PEP604Fact' expects one of ['int', 'str'], but got float."
+            "Parameter 'value' in method 'union_method' of class 'PEP604Fact' expects one of ['int', 'str'], but got float.",
         )
     ]
     # int | None: int is valid
@@ -779,6 +787,6 @@ def test_validate_parameter_value_pep604_union():
     assert validate_condition(condition, PEP604Fact) == [
         InvalidConditionError(
             "*",
-            "Parameter 'value' in method 'optional_method' of class 'PEP604Fact' expects one of ['int', 'NoneType'], but got str."
+            "Parameter 'value' in method 'optional_method' of class 'PEP604Fact' expects one of ['int', 'NoneType'], but got str.",
         )
     ]

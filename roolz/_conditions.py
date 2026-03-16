@@ -1,6 +1,6 @@
 import inspect
-from typing import Iterable, List, Type, Union, get_origin, get_args
 import types
+from typing import Iterable, List, Type, Union, get_args, get_origin
 
 from roolz._operators import get_operator
 from roolz.errors import InvalidConditionError, UndefinedOperatorError
@@ -30,10 +30,12 @@ def evaluate_condition(fact: object, condition: Union[dict, str, bool]) -> bool:
             return True
         if condition_lower in ["false", "false()"]:
             return False
-        raise InvalidConditionError("", "Invalid condition")
+        raise InvalidConditionError("", "Invalid condition", input_value=condition)
 
     if not isinstance(condition, dict):
-        raise InvalidConditionError("", "Condition must be a boolean or a dictionary")
+        raise InvalidConditionError(
+            "", "Condition must be a boolean or a dictionary", input_value=condition
+        )
 
     keys = tuple(condition.keys())
 
@@ -51,7 +53,9 @@ def evaluate_condition(fact: object, condition: Union[dict, str, bool]) -> bool:
 
     # If we get here, the condition format is invalid
     else:
-        raise InvalidConditionError("", "Invalid condition format")
+        raise InvalidConditionError(
+            "", "Invalid condition format", input_value=condition
+        )
 
 
 def _evaluate_fact_condition(fact: object, condition: dict) -> bool:
@@ -80,7 +84,9 @@ def _evaluate_fact_condition(fact: object, condition: dict) -> bool:
     elif isinstance(fact_dict, dict):
         if len(fact_dict) != 1:
             raise InvalidConditionError(
-                "", "Fact dictionary must contain exactly one key"
+                "",
+                "Fact dictionary must contain exactly one key",
+                input_value=fact_dict,
             )
         fact_method_name, fact_params = next(iter(fact_dict.items()))
         if isinstance(fact_params, list):
@@ -93,7 +99,9 @@ def _evaluate_fact_condition(fact: object, condition: dict) -> bool:
             args = []
             params = {}
     else:
-        raise InvalidConditionError("", "'fact' must be a string or a dictionary")
+        raise InvalidConditionError(
+            "", "'fact' must be a string or a dictionary", input_value=fact_dict
+        )
 
     # Get the fact method and operator
     try:
@@ -157,7 +165,11 @@ def __validate_condition(
 
     if not isinstance(condition, dict):
         return [
-            InvalidConditionError(path, "Condition must be a boolean or a dictionary")
+            InvalidConditionError(
+                path,
+                "Condition must be a boolean or a dictionary",
+                input_value=condition,
+            )
         ]
 
     keys = tuple(condition.keys())
@@ -170,7 +182,11 @@ def __validate_condition(
     elif "fact" in condition or "operator" in condition:
         return __validate_fact_condition(condition, path, fact)
     else:
-        return [InvalidConditionError(path, "Invalid condition format")]
+        return [
+            InvalidConditionError(
+                path, "Invalid condition format", input_value=condition
+            )
+        ]
 
 
 def __validate_all_condition(
@@ -183,7 +199,9 @@ def __validate_all_condition(
     if not isinstance(operands, Iterable) or not operands:
         return [
             InvalidConditionError(
-                new_path, "'all' must be a list with at least one element"
+                new_path,
+                "'all' must be a list with at least one element",
+                input_value=operands,
             )
         ]
 
@@ -205,7 +223,9 @@ def __validate_any_condition(
     if not isinstance(operands, Iterable) or not operands:
         return [
             InvalidConditionError(
-                new_path, "'any' must be a list with at least one element"
+                new_path,
+                "'any' must be a list with at least one element",
+                input_value=operands,
             )
         ]
 
@@ -235,24 +255,32 @@ def __validate_fact_condition(
     # Check if fact is required
     if not fact:
         validation_errors.append(
-            InvalidConditionError(path, "Fact is required for this condition")
+            InvalidConditionError(
+                path, "Fact is required for this condition", input_value=condition
+            )
         )
 
     # Validate keys
     invalid_keys = set(condition.keys()) - {"fact", "operator", "value"}
     if invalid_keys:
         validation_errors.append(
-            InvalidConditionError(path, f"Invalid keys: {', '.join(invalid_keys)}")
+            InvalidConditionError(
+                path, f"Invalid keys: {', '.join(invalid_keys)}", input_value=condition
+            )
         )
 
     # Validate operator
     if not condition.get("operator"):
-        validation_errors.append(InvalidConditionError(path, "'operator' is required"))
+        validation_errors.append(
+            InvalidConditionError(path, "'operator' is required", input_value=condition)
+        )
     else:
         try:
             get_operator(condition["operator"])
         except UndefinedOperatorError as e:
-            validation_errors.append(InvalidConditionError(path, str(e)))
+            validation_errors.append(
+                InvalidConditionError(path, str(e), input_value=condition)
+            )
 
     # Validate fact
     fact_method_name, params, args = _extract_fact_info(
@@ -266,6 +294,7 @@ def __validate_fact_condition(
                 InvalidConditionError(
                     path,
                     f"Fact method '{fact_method_name}' is not defined in '{fact.__name__}'",
+                    input_value=condition,
                 )
             )
         else:
@@ -317,12 +346,13 @@ def _validate_fact_parameters(
         if not parameters:
             if params or args:
                 received = list(params.keys()) + [
-                    f"positional arg {i+1}" for i in range(len(args))
+                    f"positional arg {i + 1}" for i in range(len(args))
                 ]
                 validation_errors.append(
                     InvalidConditionError(
                         path,
                         f"Method '{fact_method_name}' of class '{class_name}' does not accept any parameters, but received: {received}.",
+                        input_value={"args": args, "params": params},
                     )
                 )
             return validation_errors
@@ -365,15 +395,15 @@ def _validate_fact_parameters(
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
             ]
         ]
-        
+
         # Validate positional arguments
         if args:
-            
             if not has_args and len(args) > len(non_var_pos_params):
                 validation_errors.append(
                     InvalidConditionError(
                         path,
                         f"Too many positional arguments for method '{fact_method_name}' of class '{class_name}': expected at most {len(non_var_pos_params)}, got {len(args)}. Allowed positional parameters: {non_var_pos_params}.",
+                        input_value=args,
                     )
                 )
             elif len(args) < len(required_pos_params):
@@ -381,6 +411,7 @@ def _validate_fact_parameters(
                     InvalidConditionError(
                         path,
                         f"Missing required positional arguments for method '{fact_method_name}' of class '{class_name}': expected at least {len(required_pos_params)}, got {len(args)}. Required positional parameters: {required_pos_params}.",
+                        input_value=args,
                     )
                 )
             else:
@@ -406,6 +437,7 @@ def _validate_fact_parameters(
                         InvalidConditionError(
                             path,
                             f"Unknown parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Allowed parameters: {keyword_params}.",
+                            input_value=params,
                         )
                     )
                 elif param_name in parameters:
@@ -415,6 +447,7 @@ def _validate_fact_parameters(
                             InvalidConditionError(
                                 path,
                                 f"Parameter '{param_name}' in method '{fact_method_name}' of class '{class_name}' is positional-only and cannot be passed as a keyword argument.",
+                                input_value=params,
                             )
                         )
                     else:
@@ -431,7 +464,8 @@ def _validate_fact_parameters(
 
         # Check for missing required keyword parameters
         required_params = [
-            p for p in parameters.keys() 
+            p
+            for p in parameters.keys()
             if parameters[p].default == inspect.Parameter.empty
         ]
         for param_name, param in parameters.items():
@@ -454,6 +488,7 @@ def _validate_fact_parameters(
                     InvalidConditionError(
                         path,
                         f"Missing required parameter '{param_name}' for method '{fact_method_name}' of class '{class_name}'. Required parameters: {required_params}.",
+                        input_value=params,
                     )
                 )
 
@@ -462,6 +497,7 @@ def _validate_fact_parameters(
             InvalidConditionError(
                 path,
                 f"Error validating parameters for method '{fact_method_name}' of class '{fact.__name__}': {str(e)}",
+                input_value=params,
             )
         )
 
@@ -548,7 +584,8 @@ def _validate_parameter_value(
                     validation_errors.append(
                         InvalidConditionError(
                             path,
-                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects one of [{', '.join(repr(_get_type_name(t)) for t in args)}], but got {type(value).__name__}."
+                            f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects one of [{', '.join(repr(_get_type_name(t)) for t in args)}], but got {type(value).__name__}.",
+                            input_value={param_name: value},
                         )
                     )
             else:
@@ -558,7 +595,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a string, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a string, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 elif annotation is int:
@@ -566,7 +604,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects an integer, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects an integer, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 elif annotation is float:
@@ -574,7 +613,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a number, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a number, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 elif annotation is bool:
@@ -582,7 +622,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a boolean, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a boolean, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 elif annotation is list:
@@ -590,7 +631,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a list, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a list, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 elif annotation is dict:
@@ -598,7 +640,8 @@ def _validate_parameter_value(
                         validation_errors.append(
                             InvalidConditionError(
                                 path,
-                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a dictionary, but got {type(value).__name__}."
+                                f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects a dictionary, but got {type(value).__name__}.",
+                                input_value={param_name: value},
                             )
                         )
                 else:
@@ -612,7 +655,8 @@ def _validate_parameter_value(
                                 validation_errors.append(
                                     InvalidConditionError(
                                         path,
-                                        f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects {annotation.__name__} or a value that can be converted to {annotation.__name__}, but got {type(value).__name__}."
+                                        f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' expects {annotation.__name__} or a value that can be converted to {annotation.__name__}, but got {type(value).__name__}.",
+                                        input_value={param_name: value},
                                     )
                                 )
                     except TypeError:
@@ -623,14 +667,16 @@ def _validate_parameter_value(
             validation_errors.append(
                 InvalidConditionError(
                     path,
-                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty string."
+                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty string.",
+                    input_value={param_name: value},
                 )
             )
         elif isinstance(value, (list, dict)) and len(value) == 0:
             validation_errors.append(
                 InvalidConditionError(
                     path,
-                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty {type(value).__name__}."
+                    f"Parameter '{param_name}' in method '{method_name}' of class '{class_name}' cannot be an empty {type(value).__name__}.",
+                    input_value={param_name: value},
                 )
             )
     except Exception as e:
@@ -638,7 +684,8 @@ def _validate_parameter_value(
         validation_errors.append(
             InvalidConditionError(
                 path,
-                f"Error validating parameter '{param_name}' in method '{method_name}' of class '{class_name}': {str(e)}"
+                f"Error validating parameter '{param_name}' in method '{method_name}' of class '{class_name}': {str(e)}",
+                input_value={param_name: value},
             )
         )
     return validation_errors
@@ -650,7 +697,7 @@ def _get_type_name(t):
     except AttributeError:
         # For NoneType and others
         if t is type(None):
-            return 'NoneType'
+            return "NoneType"
         return str(t)
 
 
@@ -672,7 +719,9 @@ def _extract_fact_info(
 
     if fact_dict is None:
         validation_errors.append(
-            InvalidConditionError(path, "Fact method name is required")
+            InvalidConditionError(
+                path, "Fact method name is required", input_value=fact_dict
+            )
         )
         return None, {}, []
 
@@ -688,7 +737,9 @@ def _extract_fact_info(
         if len(fact_dict) != 1:
             validation_errors.append(
                 InvalidConditionError(
-                    path, "Fact dictionary must contain exactly one key"
+                    path,
+                    "Fact dictionary must contain exactly one key",
+                    input_value=fact_dict,
                 )
             )
             return None, {}, []
@@ -701,6 +752,8 @@ def _extract_fact_info(
 
     else:
         validation_errors.append(
-            InvalidConditionError(path, "'fact' must be a string or a dictionary")
+            InvalidConditionError(
+                path, "'fact' must be a string or a dictionary", input_value=fact_dict
+            )
         )
         return None, {}, []

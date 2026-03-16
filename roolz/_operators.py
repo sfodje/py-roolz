@@ -59,6 +59,7 @@ class OperatorRegistry:
 # Global registry instance
 __operator_registry = OperatorRegistry()
 
+
 # Cache for compiled regex patterns - using LRU cache for memory management
 @lru_cache(maxsize=128)
 def _get_compiled_regex(pattern: str) -> re.Pattern:

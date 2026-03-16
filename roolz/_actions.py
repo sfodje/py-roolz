@@ -67,7 +67,9 @@ def __validate_actions(
         # Validate action structure
         if not isinstance(action, dict):
             validation_errors.append(
-                InvalidActionError(new_path, "Action must be a dictionary")
+                InvalidActionError(
+                    new_path, "Action must be a dictionary", input_value=action
+                )
             )
             continue
 
@@ -78,20 +80,25 @@ def __validate_actions(
         }
         if invalid_keys:
             validation_errors.append(
-                InvalidActionError(new_path, f"Invalid keys: {', '.join(invalid_keys)}")
+                InvalidActionError(
+                    new_path,
+                    f"Invalid keys: {', '.join(invalid_keys)}",
+                    input_value=action,
+                )
             )
 
         # Validate action method
         action_method_name = action.get("action")
         if not action_method_name:
             validation_errors.append(
-                InvalidActionError(new_path, "'action' is required")
+                InvalidActionError(new_path, "'action' is required", input_value=action)
             )
         elif not hasattr(actor, action_method_name):
             validation_errors.append(
                 InvalidActionError(
                     new_path,
                     f"Action method '{action_method_name}' is not defined in '{actor.__class__.__name__}'",
+                    input_value=action,
                 )
             )
 
@@ -99,14 +106,18 @@ def __validate_actions(
         args = action.get("args")
         if args is not None and not isinstance(args, list):
             validation_errors.append(
-                InvalidActionError(new_path, "'args' must be a list")
+                InvalidActionError(
+                    new_path, "'args' must be a list", input_value=action
+                )
             )
 
         # Validate params
         params = action.get("params")
         if params is not None and not isinstance(params, dict):
             validation_errors.append(
-                InvalidActionError(new_path, "'params' must be a dictionary")
+                InvalidActionError(
+                    new_path, "'params' must be a dictionary", input_value=action
+                )
             )
 
     return validation_errors
