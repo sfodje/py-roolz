@@ -2,7 +2,9 @@
 name = "roolz"
 version = "0.1.0"
 description = "A JSON-based rule engine for python"
-authors = ["Dje <bfodje@gmail.com>"]
+authors = [
+    {name = "Dje", email = "bfodje@gmail.com"}
+]
 readme = "README.md"
 dependencies = []
 requires-python = ">=3.11"
